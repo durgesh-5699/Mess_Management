@@ -287,3 +287,45 @@ input[type="checkbox"]:checked::after { content: "✓"; color: #fff; font-size: 
   .pop, .scrim, .skeleton { animation: none; }
   * { transition-duration: 0.01ms !important; }
 }
+
+/* ==========================================================
+   Feedback (letter + thread) and Updates (notice + timeline)
+   ========================================================== */
+.serif { font-family: "Instrument Serif", Georgia, serif; font-weight: 400; letter-spacing: -0.01em; }
+.kicker { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--brass-deep); }
+
+.letter { background: var(--paper); border: 1px solid var(--line); border-radius: 20px; box-shadow: var(--shadow); overflow: hidden; }
+.kind-row { position: relative; display: flex; width: 100%; align-items: center; gap: 0.9rem; padding: 0.8rem 1.5rem; text-align: left; border: 0; border-bottom: 1px solid var(--line); background: transparent; transition: background 0.2s ease; }
+.kind-row:hover { background: color-mix(in srgb, var(--green) 5%, transparent); }
+.kind-row.on { background: color-mix(in srgb, var(--green) 9%, transparent); }
+.kind-row.on::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--brass); }
+.kind-no { width: 1.7rem; font-family: "Instrument Serif", Georgia, serif; font-size: 1.45rem; line-height: 1; color: var(--muted); }
+.kind-row.on .kind-no { color: var(--brass-deep); }
+
+.line-field { width: 100%; margin-top: 0.3rem; padding: 0.45rem 0; border: 0; border-bottom: 1px solid var(--lo); background: transparent; outline: none; font-size: 0.92rem; transition: border-color 0.2s ease; }
+.line-field:focus { border-bottom-color: var(--green); }
+.line-field::placeholder, .ruled::placeholder { color: var(--muted); opacity: 0.6; }
+
+.ruled { display: block; width: 100%; padding: 0; border: 0; outline: none; resize: none; background-color: transparent; background-image: repeating-linear-gradient(transparent 0 1.7rem, var(--line) 1.7rem 1.75rem); background-attachment: local; line-height: 1.75rem; font-size: 0.92rem; }
+
+.star { border: 0; background: transparent; padding: 0 0.1rem; font-size: 1.9rem; line-height: 1; color: var(--lo); transition: color 0.15s ease, transform 0.15s ease; }
+.star:hover { transform: translateY(-1px); }
+.star.on { color: var(--brass); }
+
+.stat-strip { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--ink); border-bottom: 1px solid var(--line); }
+.stat-strip > div + div { border-left: 1px solid var(--line); }
+
+.thread { position: relative; padding-left: 1.8rem; }
+.thread::before { content: ""; position: absolute; left: 5px; top: 1rem; bottom: -2.2rem; width: 1px; background: var(--line); }
+.thread:last-child::before { display: none; }
+.thread-dot { position: absolute; left: 0; top: 0.3rem; width: 11px; height: 11px; border-radius: 50%; border: 2px solid var(--brass); background: var(--base); }
+.thread.resolved .thread-dot { background: var(--ok); border-color: var(--ok); }
+.reply { margin-top: 1rem; padding: 0.15rem 0 0.15rem 1rem; border-left: 2px solid var(--brass-soft); }
+
+.empty-note { padding: 2.5rem 1.5rem; border: 1px dashed var(--lo); border-radius: 20px; }
+
+.notice { display: grid; grid-template-columns: 3.8rem 1fr; gap: 1.2rem; padding: 1.5rem 0; border-top: 1px solid var(--line); }
+.notice:last-child { border-bottom: 1px solid var(--line); }
+.notice-day { font-family: "Instrument Serif", Georgia, serif; font-size: 2.7rem; line-height: 0.9; color: var(--ink); }
+.notice-mon { margin-top: 0.35rem; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--brass-deep); }
+@media (min-width: 640px) { .notice { grid-template-columns: 5.5rem 1fr; gap: 2rem; } }

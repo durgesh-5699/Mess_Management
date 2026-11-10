@@ -107,12 +107,28 @@ const Heading = ({ title, sub, children }) => (
   </div>
 );
 
+const LogoMark = ({ size = 40 }) => (
+  <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden="true" className="shrink-0">
+    <defs>
+      <mask id="hb-bite">
+        <rect width="64" height="64" fill="#fff" />
+        <circle cx="47" cy="19" r="8.5" fill="#000" />
+        <circle cx="40" cy="13.5" r="4.5" fill="#000" />
+        <circle cx="52" cy="28" r="4.5" fill="#000" />
+      </mask>
+    </defs>
+    <rect width="64" height="64" rx="16" fill="#1f4a41" />
+    <g mask="url(#hb-bite)">
+      <circle cx="32" cy="33" r="18" fill="#d9b878" />
+      <circle cx="32" cy="33" r="12" fill="none" stroke="#1f4a41" strokeOpacity=".35" strokeWidth="1.5" />
+    </g>
+  </svg>
+);
+
 const Logo = ({ size = "md" }) => (
   <div className="flex items-center gap-3">
-    <span className="badge-skeu" style={size === "lg" ? { width: 52, height: 52 } : {}}>
-      H
-    </span>
-    <span className={`font-extrabold tracking-tight ${size === "lg" ? "text-3xl" : "text-xl"}`}>
+    <LogoMark size={size === "lg" ? 52 : 40} />
+    <span className={`serif ${size === "lg" ? "text-4xl" : "text-[1.7rem]"} leading-none`}>
       Hostel<span className="text-mango">Bite</span>
     </span>
   </div>
@@ -841,6 +857,18 @@ function Fees() {
 /* ------------------------------------------------------------------
    Feedback
 ------------------------------------------------------------------ */
+const feedbackKinds = [
+  { id: "quality", label: "Food quality", hint: "Taste, freshness, portions" },
+  { id: "hygiene", label: "Hygiene", hint: "Kitchen, hall or utensils" },
+  { id: "rating", label: "Rate a meal", hint: "Score one specific meal" },
+  { id: "feedback", label: "Suggestion", hint: "An idea for the mess team" },
+];
+
+const when = (value) =>
+  value
+    ? new Date(value).toLocaleDateString("en-IN", { day: "numeric", month: "short" })
+    : null;
+
 function Feedback({ initialMeal }) {
   const [items, setItems] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -863,95 +891,155 @@ function Feedback({ initialMeal }) {
       setBusy(false);
     }
   };
+
+  const resolved = items.filter((i) => i.status === "resolved").length;
+  const stats = [
+    { n: items.length, label: "Sent" },
+    { n: items.length - resolved, label: "Open" },
+    { n: resolved, label: "Resolved" },
+  ];
+
   return (
-    <div className="grid gap-6 lg:grid-cols-[.85fr_1.15fr]">
-      <Card strong className="h-fit space-y-5">
-        <div>
-          <h3 className="text-2xl font-extrabold tracking-tight">
+    <div className="grid gap-8 lg:grid-cols-[minmax(0,26rem)_1fr] lg:gap-12">
+      {/* the note you write */}
+      <section className="letter h-fit lg:sticky lg:top-24">
+        <div className="px-6 pb-5 pt-6">
+          <p className="kicker">New note</p>
+          <h3 className="serif mt-1 text-[2rem] leading-none">
             Tell the mess team
           </h3>
-          <p className="mt-1 text-sm text-muted">
-            Report an issue, rate a meal or share an idea.
-          </p>
         </div>
-        <Select
-          options={["quality", "hygiene", "rating", "feedback"]}
-          value={form.kind}
-          onChange={(e) => setForm({ ...form, kind: e.target.value })}
-        />
-        {form.kind === "rating" && (
-          <>
-            <Input
-              placeholder="Meal, e.g. Tue lunch"
-              value={form.meal}
-              onChange={(e) => setForm({ ...form, meal: e.target.value })}
-            />
-            <div className="flex gap-2" role="radiogroup" aria-label="Rating">
-              {[1, 2, 3, 4, 5].map((number) => (
-                <button
-                  key={number}
-                  type="button"
-                  aria-label={`${number} star${number > 1 ? "s" : ""}`}
-                  onClick={() => setForm({ ...form, rating: number })}
-                  className={`neu-sm neu-press grid h-11 w-11 place-items-center rounded-full text-xl ${
-                    number <= form.rating
-                      ? "text-sun [text-shadow:0_0_12px_var(--sun)]"
-                      : "text-muted opacity-50"
-                  }`}
-                >
-                  ★
-                </button>
-              ))}
-            </div>
-          </>
-        )}
-        <textarea
-          className="field"
-          rows="5"
-          placeholder="What happened?"
-          value={form.text || ""}
-          onChange={(e) => setForm({ ...form, text: e.target.value })}
-        />
-        <label className="flex items-center gap-3 text-sm font-semibold">
-          <input
-            type="checkbox"
-            checked={form.anon || false}
-            onChange={(e) => setForm({ ...form, anon: e.target.checked })}
-          />
-          Send anonymously
-        </label>
-        <Button className="w-full" disabled={!form.text || busy} onClick={submit}>
-          {busy && <Spinner />}
-          {busy ? "Sending…" : "Send feedback"}
-        </Button>
-      </Card>
 
-      <div className="space-y-4">
-        {items.map((item) => (
-          <Card key={item._id} className="!p-5">
-            <div className="flex items-center justify-between gap-2">
-              <b className="text-sm capitalize">
-                {item.kind}
-                {item.anon && " · anonymous"}
-              </b>
-              <Status value={item.status} />
+        <div role="radiogroup" aria-label="Type of note" className="border-t border-[var(--line)]">
+          {feedbackKinds.map((k, i) => (
+            <button
+              key={k.id}
+              type="button"
+              role="radio"
+              aria-checked={form.kind === k.id}
+              onClick={() => setForm({ ...form, kind: k.id })}
+              className={`kind-row ${form.kind === k.id ? "on" : ""}`}
+            >
+              <span className="kind-no">0{i + 1}</span>
+              <span className="min-w-0">
+                <b className="block text-sm">{k.label}</b>
+                <small className="text-xs text-muted">{k.hint}</small>
+              </span>
+            </button>
+          ))}
+        </div>
+
+        <div className="space-y-6 px-6 py-6">
+          {form.kind === "rating" && (
+            <div className="space-y-4">
+              <div>
+                <label className="kicker block">Which meal</label>
+                <input
+                  className="line-field"
+                  placeholder="e.g. Tue lunch"
+                  value={form.meal}
+                  onChange={(e) => setForm({ ...form, meal: e.target.value })}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex gap-1" role="radiogroup" aria-label="Rating">
+                  {[1, 2, 3, 4, 5].map((number) => (
+                    <button
+                      key={number}
+                      type="button"
+                      aria-label={`${number} star${number > 1 ? "s" : ""}`}
+                      onClick={() => setForm({ ...form, rating: number })}
+                      className={`star ${number <= form.rating ? "on" : ""}`}
+                    >
+                      ★
+                    </button>
+                  ))}
+                </div>
+                <span className="serif text-2xl">
+                  {form.rating}
+                  <span className="text-base text-muted"> / 5</span>
+                </span>
+              </div>
             </div>
-            <p className="mt-2 text-sm leading-6">{item.text}</p>
-            {item.reply && (
-              <p className="neu-in mt-4 rounded-2xl p-3.5 text-xs leading-5">
-                <b>Mess team:</b> {item.reply}
-              </p>
-            )}
-          </Card>
-        ))}
-        {!items.length && (
-          <Card>
-            <p className="text-sm text-muted">
-              Feedback you send will show up here with replies from the team.
+          )}
+
+          <div>
+            <label className="kicker block">Your message</label>
+            <textarea
+              className="ruled mt-2"
+              rows="5"
+              placeholder="What happened?"
+              value={form.text || ""}
+              onChange={(e) => setForm({ ...form, text: e.target.value })}
+            />
+          </div>
+
+          <label className="flex cursor-pointer items-center justify-between gap-3 border-t border-[var(--line)] pt-5 text-sm font-semibold">
+            Send anonymously
+            <input
+              type="checkbox"
+              checked={form.anon || false}
+              onChange={(e) => setForm({ ...form, anon: e.target.checked })}
+            />
+          </label>
+
+          <Button className="w-full" disabled={!form.text || busy} onClick={submit}>
+            {busy && <Spinner />}
+            {busy ? "Sending…" : "Send feedback"}
+          </Button>
+        </div>
+      </section>
+
+      {/* what you've sent */}
+      <section className="min-w-0">
+        <div className="stat-strip">
+          {stats.map((s) => (
+            <div key={s.label} className="px-1 py-4 text-center sm:px-6 sm:text-left">
+              <p className="serif text-4xl leading-none sm:text-5xl">{s.n}</p>
+              <p className="kicker mt-2">{s.label}</p>
+            </div>
+          ))}
+        </div>
+
+        <p className="kicker mb-6 mt-10">Your conversation</p>
+
+        {items.length > 0 ? (
+          <div className="space-y-9">
+            {items.map((item) => (
+              <article
+                key={item._id}
+                className={`thread ${item.status === "resolved" ? "resolved" : ""}`}
+              >
+                <span className="thread-dot" />
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <b className="text-sm capitalize">{item.kind}</b>
+                  {item.anon && <span className="text-xs text-muted">anonymous</span>}
+                  {when(item.createdAt) && (
+                    <span className="text-xs text-muted">{when(item.createdAt)}</span>
+                  )}
+                  <span className="ml-auto">
+                    <Status value={item.status} />
+                  </span>
+                </div>
+                <p className="mt-2 text-[0.95rem] leading-7">{item.text}</p>
+                {item.reply && (
+                  <div className="reply">
+                    <p className="kicker !text-[var(--green)]">Mess team replied</p>
+                    <p className="mt-1 text-sm leading-6 text-muted">{item.reply}</p>
+                  </div>
+                )}
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="empty-note">
+            <p className="serif text-3xl">Nothing sent yet.</p>
+            <p className="mt-2 text-sm text-muted">
+              Notes you send will appear here, along with the team’s replies.
             </p>
-          </Card>
+          </div>
         )}
-      </div>
+      </section>
     </div>
   );
 }
@@ -1560,52 +1648,77 @@ function Announcements() {
       .catch((requestError) => setError(requestError.message))
       .finally(() => setLoading(false));
   }, []);
+
+  const [latest, ...earlier] = items;
+  const full = (value) =>
+    value
+      ? new Date(value).toLocaleDateString("en-IN", {
+          weekday: "long",
+          day: "numeric",
+          month: "long",
+        })
+      : "From the mess team";
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-10">
       <Heading title="Updates" sub="Posted by the mess team, newest first." />
       {loading && (
-        <Card className="flex items-center gap-3">
+        <div className="flex items-center gap-3 text-sm text-muted">
           <Spinner />
-          <span className="text-sm">Loading updates…</span>
-        </Card>
+          Loading updates…
+        </div>
       )}
       {error && (
-        <Card>
-          <p className="text-sm font-semibold text-[var(--danger)]">{error}</p>
-        </Card>
+        <p className="text-sm font-semibold text-[var(--danger)]">{error}</p>
       )}
       {!loading && !error && !items.length && (
-        <Card>
-          <p className="text-sm text-muted">Nothing posted yet.</p>
-        </Card>
-      )}
-      {!loading && !error && items.length > 0 && (
-        <div className="space-y-4">
-          {items.map((announcement) => (
-            <Card key={announcement._id}>
-              <div className="flex items-start gap-4">
-                <span className="neu-sm grid h-11 w-11 shrink-0 place-items-center rounded-2xl text-mango">
-                  ✦
-                </span>
-                <div className="min-w-0">
-                  <p className="font-semibold leading-6">{announcement.text}</p>
-                  <p className="mt-2 text-xs text-muted">
-                    {announcement.createdAt
-                      ? new Date(announcement.createdAt).toLocaleString()
-                      : "Mess team update"}
-                  </p>
-                </div>
-              </div>
-            </Card>
-          ))}
+        <div className="empty-note">
+          <p className="serif text-3xl">Nothing posted yet.</p>
+          <p className="mt-2 text-sm text-muted">
+            Notices from the mess team will show up here.
+          </p>
         </div>
+      )}
+
+      {latest && (
+        <section className="metal relative overflow-hidden p-7 sm:p-10">
+          <span className="serif pointer-events-none absolute -right-2 -top-10 select-none text-[11rem] leading-none text-[rgba(217,184,120,0.12)]">
+            ”
+          </span>
+          <p className="kicker !text-[var(--brass-soft)]">Latest notice</p>
+          <p className="serif relative mt-4 max-w-3xl text-[1.7rem] leading-[1.25] sm:text-[2.2rem]">
+            {latest.text}
+          </p>
+          <p className="muted-on mt-6 text-xs font-semibold uppercase tracking-[0.14em]">
+            {full(latest.createdAt)}
+          </p>
+        </section>
+      )}
+
+      {earlier.length > 0 && (
+        <section>
+          <p className="kicker mb-2">Earlier</p>
+          <div>
+            {earlier.map((announcement) => {
+              const d = announcement.createdAt ? new Date(announcement.createdAt) : null;
+              return (
+                <article key={announcement._id} className="notice">
+                  <div>
+                    <p className="notice-day">{d ? d.getDate() : "—"}</p>
+                    <p className="notice-mon">
+                      {d ? d.toLocaleDateString("en-IN", { month: "short" }) : "Notice"}
+                    </p>
+                  </div>
+                  <p className="text-[0.98rem] leading-7">{announcement.text}</p>
+                </article>
+              );
+            })}
+          </div>
+        </section>
       )}
     </div>
   );
 }
-
-/* Replace the existing `function Home(...)` in App.jsx with this.
-   Add `mealTime` just above it. Uses Card, Button, VegLed, mealIcon etc. already in App.jsx. */
 
 // Edit these to match your mess's real serving times
 const mealTime = {
@@ -1771,6 +1884,9 @@ export default function App() {
   const [darkMode, setDarkMode] = useState(
     () => localStorage.getItem("hb-dark") === "1",
   );
+  useEffect(() => {
+    document.title = "HostelBite — IIIT-BH Mess";
+  }, []);
   useEffect(() => {
     document.documentElement.dataset.theme = darkMode ? "dark" : "light";
     localStorage.setItem("hb-dark", darkMode ? "1" : "0");
