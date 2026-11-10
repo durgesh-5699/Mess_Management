@@ -1,6 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 
+/* ------------------------------------------------------------------
+   API (unchanged)
+------------------------------------------------------------------ */
 const api = async (path, options = {}) => {
   const token = localStorage.getItem("plate-token");
   const response = await fetch(`/api${path}`, {
@@ -18,8 +21,12 @@ const api = async (path, options = {}) => {
 
 const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const mealTypes = ["breakfast", "lunch", "snacks", "dinner"];
+const mealIcon = { breakfast: "🍳", lunch: "🍛", snacks: "🥪", dinner: "🍲" };
 const currentDay = (new Date().getDay() + 6) % 7;
 
+/* ------------------------------------------------------------------
+   Primitives
+------------------------------------------------------------------ */
 const Icon = ({ children, className = "" }) => (
   <span
     className={`inline-flex h-5 w-5 items-center justify-center text-base ${className}`}
@@ -29,28 +36,22 @@ const Icon = ({ children, className = "" }) => (
   </span>
 );
 
-const Card = ({ children, className = "" }) => (
+// glass panel
+const Card = ({ children, className = "", strong = false }) => (
   <div
-    className={`rounded-[1.65rem] border border-black/[.07] bg-white p-5 shadow-[0_12px_35px_-24px_rgba(23,19,34,.45)] ${className}`}
+    className={`${strong ? "glass-strong" : "glass"} rounded-[28px] p-5 sm:p-6 ${className}`}
   >
     {children}
   </div>
 );
 
-const Button = ({ children, variant = "dark", className = "", ...props }) => (
-  <button
-    className={`rounded-full px-5 py-2.5 text-sm font-bold transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40 ${
-      variant === "light"
-        ? "border border-black/10 bg-white hover:bg-black/[.03]"
-        : variant === "lilac"
-          ? "bg-[#dbacfc] text-[#171322] hover:bg-[#d29af7]"
-          : "bg-[#171322] text-white hover:bg-[#302840]"
-    } ${className}`}
-    {...props}
-  >
+// variants: primary (3D mango), metal (3D steel), soft (neu), glass
+const Button = ({ children, variant = "primary", className = "", ...props }) => (
+  <button className={`btn btn-${variant} ${className}`} {...props}>
     {children}
   </button>
 );
+
 const Spinner = () => (
   <span
     className="mr-2 inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent align-[-.15em]"
@@ -59,17 +60,11 @@ const Spinner = () => (
 );
 
 const Input = ({ className = "", ...props }) => (
-  <input
-    className={`w-full rounded-xl border border-black/10 bg-white px-3.5 py-3 text-sm outline-none transition focus:border-[#171322] ${className}`}
-    {...props}
-  />
+  <input className={`field ${className}`} {...props} />
 );
 
 const Select = ({ options, ...props }) => (
-  <select
-    className="w-full rounded-xl border border-black/10 bg-white px-3.5 py-3 text-sm outline-none focus:border-[#171322]"
-    {...props}
-  >
+  <select className="field" {...props}>
     {options.map((option) => (
       <option key={option}>{option}</option>
     ))}
@@ -78,18 +73,73 @@ const Select = ({ options, ...props }) => (
 
 const Status = ({ value }) => (
   <span
-    className={`status-badge rounded-full px-3 py-1 text-[11px] font-bold capitalize ${
+    className={`chip ${
       value === "paid" || value === "resolved"
-        ? "status-paid bg-[#dff6e7] text-[#197240]"
+        ? "chip-ok"
         : value === "in-progress"
-          ? "status-in-progress bg-[#fff0c8] text-[#8a6100]"
-          : "status-pending bg-[#f0eafa] text-[#604979]"
+          ? "chip-warn"
+          : "chip-soft"
     }`}
   >
     {value}
   </span>
 );
 
+// glowing LED instead of the classic veg/non-veg square
+const VegLed = ({ veg }) => (
+  <span
+    className="led"
+    style={{ "--c": veg ? "#22c55e" : "#ef4444" }}
+    role="img"
+    aria-label={veg ? "Vegetarian" : "Non-vegetarian"}
+  />
+);
+
+const Heading = ({ title, sub, children }) => (
+  <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+    <div>
+      <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl">
+        {title}
+      </h2>
+      {sub && <p className="mt-1.5 text-sm text-muted">{sub}</p>}
+    </div>
+    {children}
+  </div>
+);
+
+const Logo = ({ size = "md" }) => (
+  <div className="flex items-center gap-3">
+    <span className="badge-skeu" style={size === "lg" ? { width: 52, height: 52 } : {}}>
+      H
+    </span>
+    <span className={`font-extrabold tracking-tight ${size === "lg" ? "text-3xl" : "text-xl"}`}>
+      Hostel<span className="text-mango">Bite</span>
+    </span>
+  </div>
+);
+
+const ThemeSwitch = ({ dark, onClick }) => (
+  <button
+    role="switch"
+    aria-checked={dark}
+    aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
+    className="switch"
+    onClick={onClick}
+  >
+    <span className="switch-knob">{dark ? "☾" : "☀"}</span>
+  </button>
+);
+
+const Modal = ({ children }) => (
+  <div className="scrim fixed inset-0 z-50 grid place-items-center p-5">
+    <div className="pop w-full max-w-sm">{children}</div>
+  </div>
+);
+
+/* ------------------------------------------------------------------
+   Dialogs
+------------------------------------------------------------------ */
+// Paper ticket with punched notches + perforation
 function QrDialog({
   title,
   amount,
@@ -106,47 +156,59 @@ function QrDialog({
     QRCode.toDataURL(data, { width: 220, margin: 1 }).then(setSrc);
   }, [data]);
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-[#171322]/60 p-5">
-      <div className="coupon-purchase-dialog qr-dialog w-full max-w-sm rounded-[1.65rem] bg-white p-6 text-center shadow-2xl">
-        <p className="qr-dialog-label font-mono text-xs uppercase tracking-[.17em]">
-          Offline payment
-        </p>
-        <h3 className="qr-dialog-title mt-2 text-xl font-extrabold">{title}</h3>
-        <p className="qr-dialog-amount mt-2 text-3xl font-extrabold">
-          ₹{amount}
-        </p>
-        {src ? (
-          <img
-            className="mx-auto mt-5 rounded-xl bg-white p-2"
-            src={src}
-            alt="Payment QR code"
-          />
-        ) : (
-          <div className="mx-auto mt-5 h-[220px] w-[220px] animate-pulse rounded-xl bg-black/10" />
-        )}
-        <p className="qr-dialog-note mt-4 text-xs">
-          Scan this code or show it at the mess office.
-        </p>
-        <div className="mt-5 flex justify-center gap-2">
-          <Button variant="light" onClick={onClose}>
-            Close
-          </Button>
-          {secondaryLabel && (
-            <Button
-              variant="light"
-              disabled={busy || !src}
-              onClick={onSecondary}
-            >
-              {secondaryLabel}
-            </Button>
-          )}
-          <Button disabled={busy || !src} onClick={onAction}>
-            {busy && <Spinner />}
-            {busy ? "Updating…" : actionLabel}
-          </Button>
+    <Modal>
+      <div className="ticket-wrap">
+        <div className="ticket">
+          <div className="px-6 pt-6 pb-5">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="t-sub text-xs font-semibold">Offline payment</p>
+                <h3 className="mt-1 text-xl font-extrabold leading-tight">
+                  {title}
+                </h3>
+              </div>
+              <span className="stamp">Admit one</span>
+            </div>
+            <p className="mt-4 text-4xl font-extrabold tracking-tight">
+              ₹{amount}
+            </p>
+          </div>
+          <div className="ticket-perf mx-5" />
+          <div className="px-6 pt-8 pb-6 text-center">
+            {src ? (
+              <img
+                className="mx-auto rounded-2xl bg-white p-2 shadow-[inset_0_2px_6px_rgba(0,0,0,.18)]"
+                src={src}
+                alt="Payment QR code"
+              />
+            ) : (
+              <div className="skeleton mx-auto h-[220px] w-[220px] rounded-2xl bg-black/10" />
+            )}
+            <p className="t-sub mt-4 text-xs">
+              Scan this code or show it at the mess office.
+            </p>
+            <div className="mt-5 flex flex-wrap justify-center gap-3">
+              <Button variant="soft" onClick={onClose}>
+                Close
+              </Button>
+              {secondaryLabel && (
+                <Button
+                  variant="soft"
+                  disabled={busy || !src}
+                  onClick={onSecondary}
+                >
+                  {secondaryLabel}
+                </Button>
+              )}
+              <Button disabled={busy || !src} onClick={onAction}>
+                {busy && <Spinner />}
+                {busy ? "Updating…" : actionLabel}
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -204,59 +266,51 @@ function CouponDialog({ meal, onRate, onClose }) {
   };
   if (!couponLoaded) {
     return (
-      <div className="fixed inset-0 z-50 grid place-items-center bg-[#171322]/60 p-5">
-        <div className="coupon-loading-dialog qr-dialog w-full max-w-sm rounded-[1.65rem] bg-white p-6 text-center shadow-2xl">
+      <Modal>
+        <Card strong className="text-center">
           <Spinner />
-          <p className="coupon-loading-text mt-3 text-sm font-bold">
-            Checking your coupon history…
-          </p>
-        </div>
-      </div>
+          <p className="mt-3 text-sm font-bold">Checking your coupon history…</p>
+        </Card>
+      </Modal>
     );
   }
   if (loadError) {
     return (
-      <div className="fixed inset-0 z-50 grid place-items-center bg-[#171322]/60 p-5">
-        <div className="qr-dialog w-full max-w-sm rounded-[1.65rem] bg-white p-6 text-center shadow-2xl dark:bg-[#211d2b]">
-          <p className="qr-dialog-title text-sm font-bold">
-            Could not check coupon history
-          </p>
-          <p className="qr-dialog-note mt-2 text-sm">{loadError}</p>
+      <Modal>
+        <Card strong className="text-center">
+          <p className="text-sm font-bold">Couldn’t load your coupons</p>
+          <p className="mt-2 text-sm text-muted">{loadError}</p>
           <Button className="mt-5" onClick={onClose}>
             Close
           </Button>
-        </div>
-      </div>
+        </Card>
+      </Modal>
     );
   }
   if (coupon) {
     return (
-      <div className="fixed inset-0 z-50 grid place-items-center bg-[#171322]/60 p-5">
-        <div className="coupon-status-dialog qr-dialog w-full max-w-sm rounded-[1.65rem] bg-white p-6 shadow-2xl dark:bg-[#211d2b]">
-          <p className="qr-dialog-label font-mono text-xs uppercase tracking-[.17em]">
-            Coupon status
+      <Modal>
+        <Card strong>
+          <p className="text-sm font-semibold text-muted">Coupon status</p>
+          <h3 className="mt-1 text-xl font-extrabold">{item}</h3>
+          <p className="mt-2 text-sm text-muted">
+            You already have this coupon.
           </p>
-          <h3 className="qr-dialog-title mt-2 text-xl font-extrabold">
-            {item}
-          </h3>
-          <p className="qr-dialog-note mt-2 text-sm">
-            This coupon is already in your history.
-          </p>
-          <div className="mt-5 flex justify-end gap-2">
-            <Button variant="light" onClick={onClose}>
+          <div className="mt-6 flex justify-end gap-3">
+            <Button variant="soft" onClick={onClose}>
               Close
             </Button>
-            <Button onClick={() => onRate(meal)}>Give feedback</Button>
+            <Button onClick={() => onRate(meal)}>Rate this meal</Button>
           </div>
-        </div>
-      </div>
+        </Card>
+      </Modal>
     );
   }
   return (
     <QrDialog
       title={`${days[meal.day]} ${meal.type} coupon`}
       amount={price}
-      data={`platemate-coupon:${meal.day}:${meal.type}:${item}`}
+      data={`hostelbite-coupon:${meal.day}:${meal.type}:${item}`}
       actionLabel="Buy coupon"
       secondaryLabel="Pay later"
       busy={busy}
@@ -267,17 +321,9 @@ function CouponDialog({ meal, onRate, onClose }) {
   );
 }
 
-const VegMark = ({ veg }) => (
-  <span
-    className={`inline-flex h-4 w-4 items-center justify-center rounded-[4px] border-2 ${veg ? "border-[#2a9b5b]" : "border-[#dc5b5b]"}`}
-  >
-    <i
-      className={`h-1.5 w-1.5 rounded-full ${veg ? "bg-[#2a9b5b]" : "bg-[#dc5b5b]"}`}
-    />
-  </span>
-);
-
-
+/* ------------------------------------------------------------------
+   Auth
+------------------------------------------------------------------ */
 function Auth({ onLogin }) {
   const [register, setRegister] = useState(false);
   const [form, setForm] = useState({});
@@ -291,13 +337,11 @@ function Auth({ onLogin }) {
     event.preventDefault();
     setError("");
     setBusy(true);
-
     try {
       const result = await api(`/auth/${register ? "register" : "login"}`, {
         method: "POST",
         body: form,
       });
-
       localStorage.setItem("plate-token", result.token);
       onLogin(result.user);
     } catch (e) {
@@ -308,145 +352,83 @@ function Auth({ onLogin }) {
   };
 
   return (
-    <main className="min-h-screen bg-[#f7f3ea] p-3 sm:p-6 lg:p-8">
-      <div className="mx-auto grid min-h-[calc(100vh-48px)] max-w-[1440px] overflow-hidden rounded-[30px] bg-[#fffdf8] shadow-[0_25px_80px_-35px_rgba(40,35,25,.25)] lg:grid-cols-[1.05fr_.95fr]">
-
-        {/* Left editorial panel */}
-        <section className="relative flex min-h-[420px] flex-col justify-between overflow-hidden bg-[#263b32] p-7 text-[#fffdf8] sm:p-12 lg:p-14">
-
-          <div className="relative z-10 flex items-center gap-3">
-            <div className="grid h-11 w-11 place-items-center rounded-2xl bg-[#e9a66f] text-xl font-black text-[#263b32]">
-              P
+    <main className="grid min-h-screen place-items-center p-4 sm:p-8">
+      <div className="glass-strong grid w-full max-w-5xl overflow-hidden rounded-[36px] lg:grid-cols-[1fr_1fr]">
+        {/* object side */}
+        <section className="relative hidden flex-col justify-between overflow-hidden p-10 lg:flex">
+          <Logo size="lg" />
+          <div className="relative my-8 grid place-items-center">
+            <div className="plate w-[78%] max-w-[320px]" />
+            <div className="glass absolute left-0 top-4 rounded-2xl px-4 py-3 text-sm font-bold">
+              <span className="led mr-2 align-middle" style={{ "--c": "#22c55e" }} />
+              Today’s lunch is live
             </div>
-            <div>
-              <p className="text-xl font-extrabold tracking-tight">
-                plate<span className="text-[#e9a66f]">mate.</span>
-              </p>
-              <p className="text-[10px] uppercase tracking-[.2em] text-white/50">
-                Campus dining, simplified
-              </p>
+            <div className="glass absolute bottom-2 right-0 rounded-2xl px-4 py-3 text-sm font-bold">
+              🎟 Coupons in one tap
             </div>
           </div>
-
-          <div className="relative z-10 mt-16 max-w-xl lg:mt-0">
-            <p className="mb-5 font-mono text-[11px] uppercase tracking-[.25em] text-[#e9a66f]">
-              IIIT Bhubaneswar · Your campus table
-            </p>
-
-            <h1
-              className="text-5xl leading-[1.08] tracking-tight sm:text-6xl xl:text-7xl"
-              style={{ fontFamily: "'Playfair Display', serif" }}
-            >
-              Good food.
-              <br />
-              Good days.
-              <br />
-              <span className="italic text-[#e9a66f]">
-                One less worry.
-              </span>
+          <div>
+            <h1 className="text-4xl font-extrabold leading-[1.05] tracking-tight">
+              Your hostel mess, in your pocket.
             </h1>
-
-            <p className="mt-6 max-w-md text-sm leading-7 text-white/65 sm:text-base">
-              Discover your weekly mess menu, manage meal coupons,
-              keep track of fees and stay connected with your mess team.
+            <p className="mt-3 max-w-sm text-sm leading-6 text-muted">
+              Weekly menu, meal coupons, fee statements and a direct line to
+              the mess team.
             </p>
           </div>
-
-          <div className="relative z-10 mt-12 flex items-center justify-between border-t border-white/15 pt-5 text-[10px] uppercase tracking-[.18em] text-white/45">
-            <span>Made for campus life</span>
-            <span>Est. IIIT-BH</span>
-          </div>
-
-          {/* Decorative food plate */}
-          <div className="pointer-events-none absolute -bottom-24 -right-20 h-80 w-80 rounded-full border-[2px] border-[#e9a66f]/30 sm:h-[430px] sm:w-[430px]">
-            <div className="absolute inset-8 rounded-full border border-[#e9a66f]/25" />
-            <div className="absolute inset-16 rounded-full border border-[#e9a66f]/20" />
-          </div>
-          <div className="pointer-events-none absolute right-10 top-1/3 h-28 w-28 rounded-full bg-[#e9a66f]/10 blur-3xl" />
         </section>
 
-        {/* Right form panel */}
-        <section className="flex items-center justify-center px-6 py-12 sm:px-12 lg:px-16">
-          <div className="w-full max-w-md">
-
-            <div className="mb-10 lg:hidden">
-              <p className="text-xl font-extrabold">
-                plate<span className="text-[#b85c38]">mate.</span>
-              </p>
+        {/* form side */}
+        <section className="flex items-center p-6 sm:p-10">
+          <div className="w-full">
+            <div className="mb-8 lg:hidden">
+              <Logo />
             </div>
+            <h2 className="text-3xl font-extrabold tracking-tight">
+              {register ? "Create your account" : "Welcome back"}
+            </h2>
+            <p className="mt-2 text-sm text-muted">
+              {register
+                ? "Use your official IIIT-BH email."
+                : "Sign in to see what’s on the menu."}
+            </p>
 
-            <div className="mb-8">
-              <p className="font-mono text-[11px] uppercase tracking-[.22em] text-[#b85c38]">
-                {register ? "Join the table" : "Welcome to PlateMate"}
-              </p>
-
-              <h2
-                className="mt-4 text-4xl leading-tight text-[#263b32] sm:text-5xl"
-                style={{ fontFamily: "'Playfair Display', serif" }}
-              >
-                {register
-                  ? "Make yourself at home."
-                  : "Your mess, made simpler."}
-              </h2>
-
-              <p className="mt-4 text-sm leading-6 text-[#77766d]">
-                {register
-                  ? "Create your account with your official college email."
-                  : "Sign in to see what's cooking on campus."}
-              </p>
-            </div>
-
-            <form onSubmit={submit} className="space-y-4">
-
+            <form onSubmit={submit} className="mt-8 space-y-5">
               {register && (
                 <>
                   <div>
-                    <label className="mb-2 block text-xs font-bold text-[#263b32]">
-                      Full name
-                    </label>
-                    <input
+                    <label className="field-label">Full name</label>
+                    <Input
                       required
                       placeholder="Your name"
                       value={form.name || ""}
                       onChange={change("name")}
-                      className="w-full rounded-2xl border border-[#e7dfd1] bg-white px-4 py-4 text-sm outline-none transition placeholder:text-[#aaa69c] focus:border-[#b85c38] focus:ring-4 focus:ring-[#b85c38]/10"
                     />
                   </div>
-
                   <div>
-                    <label className="mb-2 block text-xs font-bold text-[#263b32]">
-                      Room / Hostel
-                    </label>
-                    <input
+                    <label className="field-label">Hostel and room</label>
+                    <Input
                       placeholder="e.g. BH-1, Room 204"
                       value={form.room || ""}
                       onChange={change("room")}
-                      className="w-full rounded-2xl border border-[#e7dfd1] bg-white px-4 py-4 text-sm outline-none transition placeholder:text-[#aaa69c] focus:border-[#b85c38] focus:ring-4 focus:ring-[#b85c38]/10"
                     />
                   </div>
                 </>
               )}
-
               <div>
-                <label className="mb-2 block text-xs font-bold text-[#263b32]">
-                  College email
-                </label>
-                <input
+                <label className="field-label">College email</label>
+                <Input
                   required
                   type="email"
                   autoComplete="email"
                   placeholder="you@iiit-bh.ac.in"
                   value={form.email || ""}
                   onChange={change("email")}
-                  className="w-full rounded-2xl border border-[#e7dfd1] bg-white px-4 py-4 text-sm outline-none transition placeholder:text-[#aaa69c] focus:border-[#b85c38] focus:ring-4 focus:ring-[#b85c38]/10"
                 />
               </div>
-
               <div>
-                <label className="mb-2 block text-xs font-bold text-[#263b32]">
-                  Password
-                </label>
-                <input
+                <label className="field-label">Password</label>
+                <Input
                   required
                   minLength={6}
                   type="password"
@@ -454,49 +436,43 @@ function Auth({ onLogin }) {
                   placeholder="At least 6 characters"
                   value={form.password || ""}
                   onChange={change("password")}
-                  className="w-full rounded-2xl border border-[#e7dfd1] bg-white px-4 py-4 text-sm outline-none transition placeholder:text-[#aaa69c] focus:border-[#b85c38] focus:ring-4 focus:ring-[#b85c38]/10"
                 />
               </div>
 
               {error && (
-                <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">
+                <p
+                  role="alert"
+                  className="neu-in rounded-2xl px-4 py-3 text-sm font-semibold text-[var(--danger)]"
+                >
                   {error}
                 </p>
               )}
 
-              <button
-                disabled={busy}
-                className="flex w-full items-center justify-center gap-2 rounded-full bg-[#b85c38] px-6 py-4 text-sm font-bold text-white transition hover:-translate-y-0.5 hover:bg-[#99482c] disabled:opacity-50"
-              >
+              <Button disabled={busy} className="w-full !py-3.5">
                 {busy && <Spinner />}
                 {busy
-                  ? "Please wait..."
+                  ? "Please wait…"
                   : register
-                    ? "Create my account →"
-                    : "Continue to PlateMate →"}
-              </button>
+                    ? "Create account"
+                    : "Sign in"}
+              </Button>
             </form>
 
-            <div className="mt-7 border-t border-[#e7dfd1] pt-6">
-              <p className="text-sm text-[#77766d]">
-                {register
-                  ? "Already part of PlateMate?"
-                  : "New to campus dining?"}
-              </p>
-
+            <p className="mt-7 text-sm text-muted">
+              {register ? "Already have an account?" : "New here?"}{" "}
               <button
-                className="mt-2 text-sm font-bold text-[#b85c38] underline underline-offset-4 hover:text-[#99482c]"
+                type="button"
+                className="link-btn"
                 onClick={() => {
                   setRegister(!register);
                   setError("");
                 }}
               >
-                {register ? "Sign in instead" : "Create your account"}
+                {register ? "Sign in" : "Create an account"}
               </button>
-            </div>
-
-            <p className="mt-12 text-center text-[10px] uppercase tracking-[.15em] text-[#aaa69c]">
-              Exclusive to IIIT Bhubaneswar students
+            </p>
+            <p className="mt-8 text-xs text-muted">
+              For IIIT Bhubaneswar students only.
             </p>
           </div>
         </section>
@@ -505,7 +481,9 @@ function Auth({ onLogin }) {
   );
 }
 
-
+/* ------------------------------------------------------------------
+   Menu
+------------------------------------------------------------------ */
 function Menu({ onRate, onBuy }) {
   const [menu, setMenu] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
@@ -534,168 +512,130 @@ function Menu({ onRate, onBuy }) {
       )
       .filter(Boolean);
   return (
-    <div className="space-y-6">
-      {loading && (
-        <div className="rounded-2xl border border-[#dbacfc] bg-white p-5">
-          <div className="flex items-center justify-between text-sm font-bold">
-            <span>Loading your menu</span>
-            <Spinner />
-          </div>
-          <div className="mt-4 h-2 overflow-hidden rounded-full bg-[#f0e5f8]">
-            <div className="h-full w-1/2 animate-pulse rounded-full bg-[#b66cf0]" />
-          </div>
-          <p className="mt-2 text-xs text-black/45">
-            Fetching the latest menu from MongoDB…
-          </p>
-        </div>
-      )}
+    <div className="space-y-7">
       {announcements[0] && (
-        <div className="flex items-center gap-3 rounded-2xl bg-[#171322] px-5 py-4 text-sm text-white">
+        <div className="metal flex items-center gap-3 rounded-[22px] px-5 py-4 text-sm">
           <Icon>✦</Icon>
           <span>
             <b>Mess update</b>
-            <span className="ml-2 text-white/65">{announcements[0].text}</span>
+            <span className="muted-on ml-2">{announcements[0].text}</span>
           </span>
         </div>
       )}
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-        <div>
-          <p className="font-mono text-xs uppercase tracking-[.2em] text-black/45">
-            This week
-          </p>
-          <h2 className="mt-1 text-3xl font-extrabold tracking-[-.05em]">
-            {weekly ? "Weekly menu" : `${days[day]} menu`}
-          </h2>
-        </div>
-        <div className="flex rounded-full border border-black/10 bg-white p-1 text-sm">
-          <button
-            className={`rounded-full px-4 py-2 ${!weekly ? "bg-[#171322] text-white" : ""}`}
-            onClick={() => setWeekly(false)}
-          >
+
+      <Heading
+        title={weekly ? "This week’s menu" : `${days[day]} menu`}
+        sub={weekly ? "All seven days at a glance." : "Tap a meal to buy its coupon."}
+      >
+        <div className="seg">
+          <button aria-pressed={!weekly} onClick={() => setWeekly(false)}>
             Daily
           </button>
-          <button
-            className={`rounded-full px-4 py-2 ${weekly ? "bg-[#171322] text-white" : ""}`}
-            onClick={() => setWeekly(true)}
-          >
+          <button aria-pressed={weekly} onClick={() => setWeekly(true)}>
             Weekly
           </button>
         </div>
-      </div>
+      </Heading>
+
       {!weekly && (
-        <div className="hide-scrollbar flex gap-2 overflow-auto pb-1">
+        <div className="hide-scrollbar -mx-1 flex gap-3 overflow-auto px-1 pb-3 pt-1">
           {days.map((name, index) => (
             <button
               key={name}
               onClick={() => setDay(index)}
-              className={`min-w-[58px] rounded-2xl px-3 py-2 text-sm font-bold ${day === index ? "bg-[#dbacfc]" : "border border-black/10 bg-white"}`}
+              className={`day-pill ${day === index ? "on" : ""}`}
             >
-              <span className="block text-[11px] font-normal text-black/50">
-                {index === currentDay ? "Today" : " "}
-              </span>
+              <small>{index === currentDay ? "Today" : ""}</small>
               {name}
             </button>
           ))}
         </div>
       )}
+
       {loading ? (
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-5 sm:grid-cols-2">
           {mealTypes.map((type) => (
-            <Card key={type} className="animate-pulse">
-              <div className="h-3 w-24 rounded bg-black/10" />
-              <div className="mt-5 h-5 w-3/4 rounded bg-black/10" />
-              <div className="mt-5 h-3 w-1/2 rounded bg-black/10" />
+            <Card key={type} className="skeleton">
+              <div className="neu-in h-4 w-24 rounded-full" />
+              <div className="neu-in mt-6 h-16 rounded-2xl" />
+              <div className="neu-in mt-5 h-3 w-1/2 rounded-full" />
             </Card>
           ))}
         </div>
       ) : weekly ? (
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
           {days.map((name, index) => (
-            <Card
-              key={name}
-              className={
-                index === currentDay ? "border-[#dbacfc] bg-[#f7edff]" : ""
-              }
-            >
-              <div className="mb-3 flex items-center justify-between">
-                <b>{name}</b>
-                {index === currentDay && (
-                  <span className="font-mono text-[10px] uppercase text-[#7b4e9a]">
-                    Today
-                  </span>
-                )}
+            <Card key={name} strong={index === currentDay}>
+              <div className="mb-4 flex items-center justify-between">
+                <b className="text-lg">{name}</b>
+                {index === currentDay && <span className="chip chip-soft">Today</span>}
               </div>
               <div className="space-y-3">
                 {mealsForDay(index).map((meal) => (
-                  <div key={meal._id} className="text-sm">
-                    <div className="flex items-center gap-2 text-[11px] font-bold uppercase text-black/50">
-                      <VegMark veg={meal.veg} />
+                  <button
+                    key={meal._id}
+                    onClick={() => onBuy?.(meal)}
+                    className="neu-sm neu-press block w-full rounded-2xl p-3 text-left"
+                  >
+                    <div className="flex items-center gap-2 text-xs font-bold capitalize text-muted">
+                      <VegLed veg={meal.veg} />
                       {meal.type}
                     </div>
-                    <button
-                      onClick={() => onBuy?.(meal)}
-                      className="mt-1 text-left hover:text-[#6b398e] dark:hover:text-[#dbacfc]"
-                    >
+                    <p className="mt-1.5 text-sm font-semibold">
                       {meal.items.join(", ")}
-                    </button>
-                  </div>
+                    </p>
+                  </button>
                 ))}
                 {!mealsForDay(index).length && (
-                  <p className="text-sm text-black/40">Menu coming soon</p>
+                  <p className="text-sm text-muted">Menu coming soon.</p>
                 )}
               </div>
             </Card>
           ))}
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-5 sm:grid-cols-2">
           {mealTypes.map((type) => {
             const meal = menu.find((x) => x.day === day && x.type === type);
             return (
-              <Card key={type} className="group relative overflow-hidden">
+              <Card key={type} className="flex flex-col">
                 <div className="flex items-center justify-between">
-                  <span className="font-mono text-xs uppercase tracking-[.17em] text-black/45">
+                  <span className="flex items-center gap-2 font-bold capitalize">
+                    <span className="text-xl">{mealIcon[type]}</span>
                     {type}
                   </span>
-                  {meal && <VegMark veg={meal.veg} />}
+                  {meal && <VegLed veg={meal.veg} />}
                 </div>
                 {meal ? (
                   <>
                     <button
                       onClick={() => onBuy?.(meal)}
-                      className="mt-4 text-left text-lg font-bold leading-snug hover:text-[#6b398e] dark:hover:text-[#dbacfc]"
+                      className="neu-in mt-4 rounded-2xl p-4 text-left text-lg font-bold leading-snug transition hover:text-mango"
                     >
                       {meal.items.join(", ")}
                     </button>
-                    <div className="mt-5 flex items-center gap-3 text-xs text-black/50">
-                      <span>{meal.calories || "—"} kcal</span>
-                      <span>·</span>
-                      <span>{meal.protein || "—"}g protein</span>
+                    <div className="mt-4 flex gap-2 text-xs font-semibold text-muted">
+                      <span className="chip">{meal.calories || "—"} kcal</span>
+                      <span className="chip">{meal.protein || "—"} g protein</span>
                     </div>
                     {meal.allergens?.length > 0 && (
-                      <p className="mt-2 text-xs text-[#b35050]">
-                        Allergens: {meal.allergens.join(", ")}
+                      <p className="mt-3 text-xs font-semibold text-[var(--danger)]">
+                        Contains: {meal.allergens.join(", ")}
                       </p>
-                    )}{" "}
+                    )}
                     {onRate && (
-                      <div className="mt-4 flex flex-wrap items-center gap-3">
-                        <button
-                          onClick={() => onBuy(meal)}
-                          className="rounded-full bg-[#dbacfc] px-4 py-2 text-xs font-bold text-[#171322]"
-                        >
+                      <div className="mt-5 flex flex-wrap items-center gap-4">
+                        <Button className="!px-5 !py-2.5 !text-xs" onClick={() => onBuy(meal)}>
                           Buy coupon · ₹{meal.price || 80}
-                        </button>
-                        <button
-                          onClick={() => onRate(meal)}
-                          className="text-xs font-bold underline underline-offset-4"
-                        >
-                          Rate this meal →
+                        </Button>
+                        <button className="link-btn text-xs" onClick={() => onRate(meal)}>
+                          Rate this meal
                         </button>
                       </div>
                     )}
                   </>
                 ) : (
-                  <p className="mt-4 text-sm text-black/40">
+                  <p className="neu-in mt-4 rounded-2xl p-4 text-sm text-muted">
                     No meal planned yet.
                   </p>
                 )}
@@ -707,6 +647,19 @@ function Menu({ onRate, onBuy }) {
     </div>
   );
 }
+
+/* ------------------------------------------------------------------
+   Fees
+------------------------------------------------------------------ */
+const LedgerRow = ({ title, note, right }) => (
+  <div className="flex items-center justify-between gap-3 py-4">
+    <div>
+      <b className="text-sm">{title}</b>
+      <p className="mt-1 text-xs text-muted">{note}</p>
+    </div>
+    {right}
+  </div>
+);
 
 function Fees() {
   const [fees, setFees] = useState([]);
@@ -748,88 +701,69 @@ function Fees() {
     }
   };
   return (
-    <div className="fees-page space-y-5">
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Card className="fees-outstanding-card">
-          <p className="fees-card-label text-xs uppercase tracking-[.17em]">
-            Outstanding offline
-          </p>
-          <p className="fees-card-value mt-3 text-4xl font-extrabold tracking-[-.06em]">
+    <div className="space-y-6">
+      <div className="grid gap-5 sm:grid-cols-2">
+        <div className="metal rounded-[28px] p-6">
+          <p className="muted-on text-sm font-semibold">Mess fees due</p>
+          <p className="mt-3 text-5xl font-extrabold tracking-tight">
             ₹{pending.reduce((sum, fee) => sum + (fee.amount || 0), 0)}
           </p>
-          <p className="fees-card-note mt-2 text-xs">
+          <p className="muted-on mt-3 text-xs">
             Pay at the mess office or accounts counter.
           </p>
-        </Card>
+        </div>
         <Card>
-          <p className="fees-card-label text-xs uppercase tracking-[.17em]">
-            Payment history
-          </p>
-          <p className="fees-card-value mt-3 text-4xl font-extrabold tracking-[-.06em]">
+          <p className="text-sm font-semibold text-muted">Payment history</p>
+          <p className="mt-3 text-5xl font-extrabold tracking-tight">
             {fees.filter((fee) => fee.status === "paid").length}
-            <span className="fees-paid-label ml-2 text-base font-medium">
+            <span className="ml-2 text-base font-semibold text-muted">
               paid bills
             </span>
           </p>
-          <p className="fees-card-note mt-2 text-xs">
-            Payments are recorded offline by the mess team.
+          <p className="mt-3 text-xs text-muted">
+            The mess team records payments offline.
           </p>
         </Card>
       </div>
+
       <div className="grid gap-5 lg:grid-cols-[1.4fr_.6fr]">
         <Card>
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="font-bold">Outstanding bills</h3>
-            <span className="font-mono text-xs text-black/45">
-              {pending.length + pendingCoupons.length} total
-            </span>
+          <div className="mb-2 flex items-center justify-between">
+            <h3 className="text-lg font-bold">Outstanding bills</h3>
+            <span className="chip">{pending.length + pendingCoupons.length}</span>
           </div>
-          <div className="divide-y divide-black/5 dark:divide-white/10">
+          <div className="divide-y divide-[var(--lo)]/40">
             {pending.map((fee) => (
-              <div
+              <LedgerRow
                 key={fee._id}
-                className="flex items-center justify-between gap-3 py-4"
-              >
-                <div>
-                  <b className="text-sm">{fee.month}</b>
-                  <p className="mt-1 text-xs text-black/45 dark:text-white/65">
-                    Mess fee · awaiting offline payment
-                  </p>
-                </div>
-                <b>₹{fee.amount}</b>
-              </div>
+                title={fee.month}
+                note="Mess fee, awaiting offline payment"
+                right={<b>₹{fee.amount}</b>}
+              />
             ))}
             {pendingCoupons.map((coupon) => (
-              <div
+              <LedgerRow
                 key={coupon._id}
-                className="flex items-center justify-between gap-3 py-4"
-              >
-                <div>
-                  <b className="text-sm">{coupon.item}</b>
-                  <p className="mt-1 text-xs text-black/45 dark:text-white/65">
-                    {days[coupon.day]} {coupon.type} coupon · pay later
-                  </p>
-                </div>
-                <b>₹{coupon.price}</b>
-              </div>
+                title={coupon.item}
+                note={`${days[coupon.day]} ${coupon.type} coupon, pay later`}
+                right={<b>₹{coupon.price}</b>}
+              />
             ))}
             {!pending.length && !pendingCoupons.length && (
-              <p className="py-6 text-sm text-black/45 dark:text-white/65">
-                No outstanding bills.
-              </p>
+              <p className="py-6 text-sm text-muted">You’re all paid up.</p>
             )}
           </div>
         </Card>
-        <Card className="h-fit lg:w-full">
-          <p className="text-xs uppercase tracking-[.17em] text-black/45 dark:text-white/65">
-            Net total
+        <Card strong className="h-fit">
+          <p className="text-sm font-semibold text-muted">Total to pay</p>
+          <p className="mt-3 text-5xl font-extrabold tracking-tight">
+            ₹{outstandingTotal}
           </p>
-          <p className="mt-3 text-4xl font-extrabold">₹{outstandingTotal}</p>
-          <p className="mt-2 text-xs text-black/50 dark:text-white/65">
-            Pay all outstanding mess fees and coupons together.
+          <p className="mt-2 text-xs text-muted">
+            Clears all mess fees and coupons together.
           </p>
           <Button
-            className="mt-5 w-full"
+            className="mt-6 w-full"
             disabled={!outstandingTotal}
             onClick={() => setPaymentOpen(true)}
           >
@@ -837,74 +771,63 @@ function Fees() {
           </Button>
         </Card>
       </div>
+
       <Card>
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="font-bold">Coupon history</h3>
-          <span className="font-mono text-xs text-black/45">
-            {coupons.length} total
-          </span>
+        <div className="mb-2 flex items-center justify-between">
+          <h3 className="text-lg font-bold">Coupon history</h3>
+          <span className="chip">{coupons.length}</span>
         </div>
-        <div className="divide-y divide-black/5 dark:divide-white/10">
+        <div className="divide-y divide-[var(--lo)]/40">
           {coupons.map((coupon) => (
-            <div
+            <LedgerRow
               key={coupon._id}
-              className="flex items-center justify-between gap-3 py-4"
-            >
-              <div>
-                <b className="text-sm">{coupon.item}</b>
-                <p className="mt-1 text-xs text-black/45 dark:text-white/65">
-                  {days[coupon.day]} {coupon.type} · ₹{coupon.price}
-                </p>
-              </div>
-              <Status value={coupon.status} />
-            </div>
+              title={coupon.item}
+              note={`${days[coupon.day]} ${coupon.type} · ₹${coupon.price}`}
+              right={<Status value={coupon.status} />}
+            />
           ))}
           {!coupons.length && (
-            <p className="py-6 text-sm text-black/45 dark:text-white/65">
-              No coupons bought yet.
+            <p className="py-6 text-sm text-muted">
+              No coupons yet. Buy one from the menu.
             </p>
           )}
         </div>
       </Card>
+
       <Card>
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="font-bold">Fee history</h3>
-          <span className="font-mono text-xs text-black/45">
-            {fees.length} total
-          </span>
+        <div className="mb-2 flex items-center justify-between">
+          <h3 className="text-lg font-bold">Fee history</h3>
+          <span className="chip">{fees.length}</span>
         </div>
-        <div className="divide-y divide-black/5 dark:divide-white/10">
+        <div className="divide-y divide-[var(--lo)]/40">
           {fees.map((fee) => (
-            <div
+            <LedgerRow
               key={fee._id}
-              className="flex items-center justify-between gap-3 py-4"
-            >
-              <div>
-                <b className="text-sm">{fee.month}</b>
-                <p className="mt-1 text-xs text-black/45 dark:text-white/65">
-                  {fee.status === "paid"
-                    ? `Paid ${new Date(fee.paidOn).toLocaleDateString()}`
-                    : "Awaiting offline payment"}
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                <b>₹{fee.amount}</b>
-                <Status value={fee.status} />
-              </div>
-            </div>
+              title={fee.month}
+              note={
+                fee.status === "paid"
+                  ? `Paid ${new Date(fee.paidOn).toLocaleDateString()}`
+                  : "Awaiting offline payment"
+              }
+              right={
+                <div className="flex items-center gap-3">
+                  <b>₹{fee.amount}</b>
+                  <Status value={fee.status} />
+                </div>
+              }
+            />
           ))}
           {!fees.length && (
-            <p className="py-6 text-sm text-black/45 dark:text-white/65">
-              No fee statements yet.
-            </p>
+            <p className="py-6 text-sm text-muted">No fee statements yet.</p>
           )}
         </div>
       </Card>
+
       {paymentOpen && (
         <QrDialog
           title="Outstanding bills"
           amount={outstandingTotal}
-          data={`platemate-outstanding:${pending.map((fee) => fee._id).join(",")}:${pendingCoupons.map((coupon) => coupon._id).join(",")}`}
+          data={`hostelbite-outstanding:${pending.map((fee) => fee._id).join(",")}:${pendingCoupons.map((coupon) => coupon._id).join(",")}`}
           actionLabel="Mark as paid"
           busy={busy}
           onClose={() => setPaymentOpen(false)}
@@ -915,6 +838,9 @@ function Fees() {
   );
 }
 
+/* ------------------------------------------------------------------
+   Feedback
+------------------------------------------------------------------ */
 function Feedback({ initialMeal }) {
   const [items, setItems] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -938,15 +864,15 @@ function Feedback({ initialMeal }) {
     }
   };
   return (
-    <div className="grid gap-5 lg:grid-cols-[.8fr_1.2fr]">
-      <Card className="h-fit space-y-4">
+    <div className="grid gap-6 lg:grid-cols-[.85fr_1.15fr]">
+      <Card strong className="h-fit space-y-5">
         <div>
-          <p className="font-mono text-xs uppercase tracking-[.17em] text-black/45">
-            Talk to the team
-          </p>
-          <h3 className="mt-1 text-xl font-extrabold">
-            Something on your mind?
+          <h3 className="text-2xl font-extrabold tracking-tight">
+            Tell the mess team
           </h3>
+          <p className="mt-1 text-sm text-muted">
+            Report an issue, rate a meal or share an idea.
+          </p>
         </div>
         <Select
           options={["quality", "hygiene", "rating", "feedback"]}
@@ -960,12 +886,18 @@ function Feedback({ initialMeal }) {
               value={form.meal}
               onChange={(e) => setForm({ ...form, meal: e.target.value })}
             />
-            <div className="flex gap-1">
+            <div className="flex gap-2" role="radiogroup" aria-label="Rating">
               {[1, 2, 3, 4, 5].map((number) => (
                 <button
                   key={number}
-                  className={`text-2xl ${number <= form.rating ? "" : "opacity-20"}`}
+                  type="button"
+                  aria-label={`${number} star${number > 1 ? "s" : ""}`}
                   onClick={() => setForm({ ...form, rating: number })}
+                  className={`neu-sm neu-press grid h-11 w-11 place-items-center rounded-full text-xl ${
+                    number <= form.rating
+                      ? "text-sun [text-shadow:0_0_12px_var(--sun)]"
+                      : "text-muted opacity-50"
+                  }`}
                 >
                   ★
                 </button>
@@ -974,30 +906,31 @@ function Feedback({ initialMeal }) {
           </>
         )}
         <textarea
-          className="w-full resize-none rounded-xl border border-black/10 px-3.5 py-3 text-sm outline-none focus:border-black"
+          className="field"
           rows="5"
-          placeholder="Tell us what happened…"
+          placeholder="What happened?"
           value={form.text || ""}
           onChange={(e) => setForm({ ...form, text: e.target.value })}
         />
-        <label className="flex items-center gap-2 text-sm">
+        <label className="flex items-center gap-3 text-sm font-semibold">
           <input
             type="checkbox"
             checked={form.anon || false}
             onChange={(e) => setForm({ ...form, anon: e.target.checked })}
-          />{" "}
-          Submit anonymously
+          />
+          Send anonymously
         </label>
-        <Button disabled={!form.text || busy} onClick={submit}>
+        <Button className="w-full" disabled={!form.text || busy} onClick={submit}>
           {busy && <Spinner />}
-          {busy ? "Saving…" : "Send feedback"}
+          {busy ? "Sending…" : "Send feedback"}
         </Button>
       </Card>
-      <div className="space-y-3">
+
+      <div className="space-y-4">
         {items.map((item) => (
-          <Card key={item._id} className="!p-4">
+          <Card key={item._id} className="!p-5">
             <div className="flex items-center justify-between gap-2">
-              <b className="feedback-kind text-sm capitalize">
+              <b className="text-sm capitalize">
                 {item.kind}
                 {item.anon && " · anonymous"}
               </b>
@@ -1005,7 +938,7 @@ function Feedback({ initialMeal }) {
             </div>
             <p className="mt-2 text-sm leading-6">{item.text}</p>
             {item.reply && (
-              <p className="mt-3 rounded-xl bg-[#f5eaff] p-3 text-xs leading-5">
+              <p className="neu-in mt-4 rounded-2xl p-3.5 text-xs leading-5">
                 <b>Mess team:</b> {item.reply}
               </p>
             )}
@@ -1013,8 +946,8 @@ function Feedback({ initialMeal }) {
         ))}
         {!items.length && (
           <Card>
-            <p className="text-sm text-black/45">
-              Your submitted feedback will appear here.
+            <p className="text-sm text-muted">
+              Feedback you send will show up here with replies from the team.
             </p>
           </Card>
         )}
@@ -1023,6 +956,9 @@ function Feedback({ initialMeal }) {
   );
 }
 
+/* ------------------------------------------------------------------
+   Admin
+------------------------------------------------------------------ */
 function AdminPaymentsTable() {
   const [fees, setFees] = useState([]);
   const [busy, setBusy] = useState("");
@@ -1049,51 +985,49 @@ function AdminPaymentsTable() {
     }
   };
   return (
-    <Card className="mt-5 overflow-hidden !p-0">
-      <div className="border-b border-black/5 p-5 dark:border-white/10">
-        <p className="font-mono text-xs uppercase tracking-[.17em] text-black/45">
-          Offline payments
+    <Card className="mt-6 overflow-hidden !p-0">
+      <div className="p-6">
+        <h3 className="text-lg font-bold">All fee statements</h3>
+        <p className="mt-1 text-xs text-muted">
+          Approve a payment after the mess office receives cash or another
+          offline payment.
         </p>
-        <h3 className="mt-1 font-bold">All fee statements</h3>
-        <p className="mt-1 text-xs text-black/45">
-          Payments are recorded here after the mess office receives cash or
-          another offline payment.
-        </p>
-        {error && <p className="mt-3 text-xs text-red-600">{error}</p>}
+        {error && <p className="mt-3 text-xs font-semibold text-[var(--danger)]">{error}</p>}
       </div>
       <div className="overflow-x-auto">
         <table className="min-w-full text-left text-sm">
-          <thead className="bg-black/[.03] text-xs uppercase tracking-wider text-black/45 dark:bg-white/[.04]">
-            <tr>
-              <th className="px-5 py-3 font-medium">Student</th>
-              <th className="px-5 py-3 font-medium">Month</th>
-              <th className="px-5 py-3 font-medium">Amount</th>
-              <th className="px-5 py-3 font-medium">Status</th>
-              <th className="px-5 py-3 font-medium">Paid on</th>
-              <th className="px-5 py-3 font-medium">Action</th>
+          <thead className="text-xs text-muted">
+            <tr className="border-y border-[var(--lo)]/40">
+              {["Student", "Month", "Amount", "Status", "Paid on", "Action"].map(
+                (h) => (
+                  <th key={h} className="px-6 py-3 font-semibold">
+                    {h}
+                  </th>
+                ),
+              )}
             </tr>
           </thead>
-          <tbody className="divide-y divide-black/5 dark:divide-white/10">
+          <tbody className="divide-y divide-[var(--lo)]/30">
             {fees.map((fee) => (
               <tr key={fee._id}>
-                <td className="px-5 py-4 font-semibold">
+                <td className="px-6 py-4 font-semibold">
                   {fee.user?.name || "Student"}
-                  <span className="ml-2 text-xs font-normal text-black/45">
+                  <span className="ml-2 text-xs font-normal text-muted">
                     {fee.user?.email || ""}
                   </span>
                 </td>
-                <td className="px-5 py-4">{fee.month}</td>
-                <td className="px-5 py-4">₹{fee.amount}</td>
-                <td className="px-5 py-4">
+                <td className="px-6 py-4">{fee.month}</td>
+                <td className="px-6 py-4">₹{fee.amount}</td>
+                <td className="px-6 py-4">
                   <Status value={fee.status} />
                 </td>
-                <td className="px-5 py-4 text-black/55">
+                <td className="px-6 py-4 text-muted">
                   {fee.paidOn ? new Date(fee.paidOn).toLocaleDateString() : "—"}
                 </td>
-                <td className="px-5 py-4">
+                <td className="px-6 py-4">
                   {fee.status === "pending" ? (
                     <Button
-                      className="whitespace-nowrap px-4 py-2 text-xs"
+                      className="whitespace-nowrap !px-4 !py-2 !text-xs"
                       disabled={busy === fee._id}
                       onClick={() => approve(fee._id)}
                     >
@@ -1101,19 +1035,14 @@ function AdminPaymentsTable() {
                       {busy === fee._id ? "Approving…" : "Approve payment"}
                     </Button>
                   ) : (
-                    <span className="text-xs text-black/45 dark:text-white/65">
-                      Approved
-                    </span>
+                    <span className="text-xs text-muted">Approved</span>
                   )}
                 </td>
               </tr>
             ))}
             {!fees.length && (
               <tr>
-                <td
-                  colSpan="6"
-                  className="px-5 py-8 text-center text-sm text-black/45"
-                >
+                <td colSpan="6" className="px-6 py-8 text-center text-sm text-muted">
                   No fee records yet.
                 </td>
               </tr>
@@ -1129,16 +1058,11 @@ function Admin() {
   const [meal, setMeal] = useState({ day: 0, type: "lunch", veg: true });
   const [announcement, setAnnouncement] = useState("");
   const [fee, setFee] = useState({});
-  const [fees, setFees] = useState([]);
   const [feedback, setFeedback] = useState([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [seedDialog, setSeedDialog] = useState(false);
-  const load = () =>
-    Promise.all([api("/fees"), api("/feedback")]).then(([f, b]) => {
-      setFees(f);
-      setFeedback(b);
-    });
+  const load = () => api("/feedback").then(setFeedback);
   useEffect(() => {
     load();
   }, []);
@@ -1158,33 +1082,29 @@ function Admin() {
   };
   return (
     <>
-      <div className="grid gap-5 lg:grid-cols-2">
-        <div className="space-y-5">
-          <Card className="space-y-3">
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="space-y-6">
+          <Card className="space-y-4">
             <div>
-              <p className="font-mono text-xs uppercase tracking-[.17em] text-black/45">
-                Menu editor
-              </p>
-              <h3 className="mt-1 font-bold">Add a meal</h3>
-              <p className="mt-1 text-xs text-black/45">
-                Use the default loader if the current MongoDB menu is
-                incomplete.
+              <h3 className="text-lg font-bold">Add a meal</h3>
+              <p className="mt-1 text-xs text-muted">
+                Use the default loader if the current menu is incomplete.
               </p>
             </div>
             {error && (
-              <p className="rounded-xl bg-red-50 px-3 py-2 text-xs text-red-600">
+              <p className="neu-in rounded-2xl px-4 py-3 text-xs font-semibold text-[var(--danger)]">
                 {error}
               </p>
             )}
             <Button
               disabled={busy}
-              variant="lilac"
+              variant="metal"
               onClick={() => setSeedDialog(true)}
             >
               {busy && <Spinner />}
               {busy ? "Loading menu…" : "Load default Odia week"}
             </Button>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-3">
               <Select
                 options={days}
                 onChange={(e) =>
@@ -1206,13 +1126,11 @@ function Admin() {
                 })
               }
             />
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-3">
               <Input
                 type="number"
                 placeholder="Calories"
-                onChange={(e) =>
-                  setMeal({ ...meal, calories: +e.target.value })
-                }
+                onChange={(e) => setMeal({ ...meal, calories: +e.target.value })}
               />
               <Input
                 type="number"
@@ -1232,28 +1150,22 @@ function Admin() {
                 })
               }
             />
-            <label className="flex items-center gap-2 text-sm">
+            <label className="flex items-center gap-3 text-sm font-semibold">
               <input
                 type="checkbox"
                 checked={meal.veg}
                 onChange={(e) => setMeal({ ...meal, veg: e.target.checked })}
-              />{" "}
+              />
               Vegetarian meal
             </label>
-            <Button
-              onClick={() => run("/menu", { method: "POST", body: meal })}
-            >
+            <Button onClick={() => run("/menu", { method: "POST", body: meal })}>
               {busy && <Spinner />}
               {busy ? "Saving…" : "Add meal"}
             </Button>
           </Card>
-          <Card className="space-y-3">
-            <div>
-              <p className="font-mono text-xs uppercase tracking-[.17em] text-black/45">
-                Broadcast
-              </p>
-              <h3 className="mt-1 font-bold">Post an announcement</h3>
-            </div>
+
+          <Card className="space-y-4">
+            <h3 className="text-lg font-bold">Post an announcement</h3>
             <Input
               value={announcement}
               placeholder="e.g. Sunday dinner starts at 7:30 PM"
@@ -1261,7 +1173,6 @@ function Admin() {
             />
             <Button
               disabled={!announcement || busy}
-              variant="lilac"
               onClick={() =>
                 run("/announcements", {
                   method: "POST",
@@ -1273,13 +1184,9 @@ function Admin() {
               {busy ? "Publishing…" : "Publish update"}
             </Button>
           </Card>
-          <Card className="space-y-3">
-            <div>
-              <p className="font-mono text-xs uppercase tracking-[.17em] text-black/45">
-                Offline billing
-              </p>
-              <h3 className="mt-1 font-bold">Create fee for students</h3>
-            </div>
+
+          <Card className="space-y-4">
+            <h3 className="text-lg font-bold">Create fee for students</h3>
             <Input
               placeholder="Month, e.g. Nov 2026"
               onChange={(e) => setFee({ ...fee, month: e.target.value })}
@@ -1298,76 +1205,70 @@ function Admin() {
             </Button>
           </Card>
         </div>
-        <div className="space-y-5">
-          <Card className="max-h-[32rem] overflow-auto">
-            <h3 className="mb-3 font-bold">Open feedback</h3>
-            {feedback.map((item) => (
-              <div
-                key={item._id}
-                className="border-t border-black/5 py-3 text-sm"
-              >
-                <div className="flex justify-between gap-2">
-                  <b className="feedback-kind capitalize">{item.kind}</b>
-                  <span className="feedback-user text-xs text-black/45">
-                    {item.user?.name || "Anonymous"}
-                  </span>
-                </div>
-                <p className="my-2">{item.text}</p>
-                <div className="flex gap-2">
-                  <Select
-                    options={["open", "in-progress", "resolved"]}
-                    value={item.status}
-                    onChange={(e) =>
-                      run(`/feedback/${item._id}`, {
-                        method: "PATCH",
-                        body: { status: e.target.value, reply: item.reply },
-                      })
-                    }
-                  />
-                  <Input
-                    placeholder="Reply and press Enter"
-                    defaultValue={item.reply}
-                    onKeyDown={(e) =>
-                      e.key === "Enter" &&
-                      run(`/feedback/${item._id}`, {
-                        method: "PATCH",
-                        body: { status: item.status, reply: e.target.value },
-                      })
-                    }
-                  />
-                </div>
+
+        <Card className="h-fit max-h-[40rem] overflow-auto">
+          <h3 className="mb-3 text-lg font-bold">Open feedback</h3>
+          {feedback.map((item) => (
+            <div
+              key={item._id}
+              className="border-t border-[var(--lo)]/40 py-4 text-sm"
+            >
+              <div className="flex justify-between gap-2">
+                <b className="capitalize">{item.kind}</b>
+                <span className="text-xs text-muted">
+                  {item.user?.name || "Anonymous"}
+                </span>
               </div>
-            ))}
-            {!feedback.length && (
-              <p className="text-sm text-black/45">No feedback to review.</p>
-            )}
-          </Card>
-        </div>
+              <p className="my-2">{item.text}</p>
+              <div className="flex gap-3">
+                <Select
+                  options={["open", "in-progress", "resolved"]}
+                  value={item.status}
+                  onChange={(e) =>
+                    run(`/feedback/${item._id}`, {
+                      method: "PATCH",
+                      body: { status: e.target.value, reply: item.reply },
+                    })
+                  }
+                />
+                <Input
+                  placeholder="Reply and press Enter"
+                  defaultValue={item.reply}
+                  onKeyDown={(e) =>
+                    e.key === "Enter" &&
+                    run(`/feedback/${item._id}`, {
+                      method: "PATCH",
+                      body: { status: item.status, reply: e.target.value },
+                    })
+                  }
+                />
+              </div>
+            </div>
+          ))}
+          {!feedback.length && (
+            <p className="text-sm text-muted">No feedback to review.</p>
+          )}
+        </Card>
       </div>
+
       {busy && (
-        <div className="fixed inset-x-0 bottom-5 z-40 flex justify-center">
-          <div className="rounded-full bg-[#171322] px-4 py-2 text-xs font-bold text-white shadow-xl">
-            <Spinner /> Saving to MongoDB…
+        <div className="fixed inset-x-0 bottom-28 z-40 flex justify-center">
+          <div className="metal rounded-full px-5 py-2.5 text-xs font-bold">
+            <Spinner /> Saving changes…
           </div>
         </div>
       )}
+
       {seedDialog && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-5">
-          <div
-            role="dialog"
-            aria-modal="true"
-            className="w-full max-w-sm rounded-[1.75rem] bg-white p-6 shadow-2xl"
-          >
-            <p className="font-mono text-xs uppercase tracking-[.18em] text-black/45">
-              Replace menu
+        <Modal>
+          <Card strong role="dialog" aria-modal="true">
+            <h3 className="text-xl font-extrabold">Load the Odia week?</h3>
+            <p className="mt-2 text-sm leading-6 text-muted">
+              This replaces the current menu with the complete default 7-day
+              menu.
             </p>
-            <h3 className="mt-2 text-xl font-extrabold">Load the Odia week?</h3>
-            <p className="mt-2 text-sm leading-6 text-black/55">
-              This replaces the current menu in MongoDB with the complete
-              default 7-day menu.
-            </p>
-            <div className="mt-6 flex justify-end gap-2">
-              <Button variant="light" onClick={() => setSeedDialog(false)}>
+            <div className="mt-6 flex justify-end gap-3">
+              <Button variant="soft" onClick={() => setSeedDialog(false)}>
                 Cancel
               </Button>
               <Button
@@ -1377,11 +1278,11 @@ function Admin() {
                   run("/menu/seed", { method: "POST" });
                 }}
               >
-                Load menu
+                Replace menu
               </Button>
             </div>
-          </div>
-        </div>
+          </Card>
+        </Modal>
       )}
     </>
   );
@@ -1452,98 +1353,80 @@ function AdminOverview({ setTab }) {
     ...vegByDay.map((item) => Math.max(item.veg, item.nonVeg)),
   );
   return (
-    <div className="space-y-6">
-      <div>
-        <p className="font-mono text-xs uppercase tracking-[.2em] text-black/45">
-          Admin workspace
-        </p>
-        <h2 className="mt-1 text-3xl font-extrabold tracking-[-.05em]">
-          Keep the mess moving.
-        </h2>
-        <p className="mt-2 text-sm text-black/50">
-          A quick read on collections, menu balance, and what needs attention.
-        </p>
-      </div>
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Card className="!bg-[#171322] text-white">
-          <p className="text-xs uppercase tracking-[.16em] text-white/50">
-            Pending bills
+    <div className="space-y-7">
+      <Heading
+        title="Keep the mess moving"
+        sub="Collections, menu balance and what needs attention."
+      />
+      <div className="grid gap-5 sm:grid-cols-3">
+        <div className="metal rounded-[28px] p-6">
+          <p className="muted-on text-sm font-semibold">Pending bills</p>
+          <p className="mt-3 text-5xl font-extrabold">{pending.length}</p>
+          <p className="muted-on mt-2 text-xs">
+            ₹{pending.reduce((sum, fee) => sum + (fee.amount || 0), 0)} outstanding
           </p>
-          <p className="mt-3 text-4xl font-extrabold">{pending.length}</p>
-          <p className="mt-1 text-xs text-white/50">
-            ₹{pending.reduce((sum, fee) => sum + (fee.amount || 0), 0)}{" "}
-            outstanding
-          </p>
-        </Card>
+        </div>
         <Card>
-          <p className="text-xs uppercase tracking-[.16em] text-black/45">
-            Paid bills
-          </p>
-          <p className="paid-bills-value mt-3 text-4xl font-extrabold">
-            {paid.length}
-          </p>
-          <p className="paid-bills-total mt-1 text-xs">
+          <p className="text-sm font-semibold text-muted">Paid bills</p>
+          <p className="mt-3 text-5xl font-extrabold">{paid.length}</p>
+          <p className="mt-2 text-xs text-muted">
             ₹{paid.reduce((sum, fee) => sum + (fee.amount || 0), 0)} collected
           </p>
         </Card>
         <Card>
-          <p className="text-xs uppercase tracking-[.16em] text-black/45">
-            Menu coverage
-          </p>
+          <p className="text-sm font-semibold text-muted">Menu coverage</p>
           {loadingMenu ? (
-            <>
-              <div className="mt-4 h-2 overflow-hidden rounded-full bg-[#f0e5f8]">
-                <div className="h-full w-1/2 animate-pulse rounded-full bg-[#b66cf0]" />
-              </div>
-              <p className="mt-2 text-xs text-black/45">
-                Loading from MongoDB…
-              </p>
-            </>
+            <div className="bar-track mt-6">
+              <div className="bar-fill skeleton w-1/2" />
+            </div>
           ) : (
             <>
-              {" "}
-              <p className="mt-3 text-4xl font-extrabold">
+              <p className="mt-3 text-5xl font-extrabold">
                 {uniqueMenu.length}
-                <span className="ml-1 text-base font-medium text-black/40">
-                  / 28
-                </span>
+                <span className="ml-1 text-base font-semibold text-muted">/ 28</span>
               </p>
-              <p className="mt-1 text-xs text-black/50">
-                meals planned this week
-              </p>
+              <div className="bar-track mt-3">
+                <div
+                  className="bar-fill"
+                  style={{ width: `${(uniqueMenu.length / 28) * 100}%` }}
+                />
+              </div>
             </>
           )}
         </Card>
       </div>
+
       <div className="grid gap-5 lg:grid-cols-2">
         <Card>
           <div className="flex items-start justify-between">
             <div>
-              <p className="font-mono text-xs uppercase tracking-[.17em] text-black/45">
-                Collections
-              </p>
-              <h3 className="mt-1 font-bold">Paid bills over weeks</h3>
+              <h3 className="text-lg font-bold">Paid bills over time</h3>
+              <p className="mt-1 text-xs text-muted">Running total, last 8 weeks</p>
             </div>
-            <span className="rounded-full bg-[#e6f7ed] px-3 py-1 text-[11px] font-bold text-[#197240]">
-              8 week view
-            </span>
+            <span className="chip chip-ok">8 weeks</span>
           </div>
-          <div className="relative mt-5 h-44">
+          <div className="neu-in relative mt-5 rounded-2xl p-3">
             <svg
               viewBox="0 0 300 110"
-              className="h-full w-full"
+              className="h-40 w-full"
               role="img"
               aria-label="Paid bills over the last eight weeks"
             >
+              <defs>
+                <linearGradient id="hbLine" x1="0" x2="1">
+                  <stop offset="0" stopColor="#ffb35e" />
+                  <stop offset="1" stopColor="#e4600a" />
+                </linearGradient>
+              </defs>
               <path
                 d="M10 92H290M10 57H290M10 22H290"
-                stroke="#171322"
-                strokeOpacity=".08"
+                stroke="currentColor"
+                strokeOpacity=".12"
               />
               <polyline
                 points={points}
                 fill="none"
-                stroke="#b66cf0"
+                stroke="url(#hbLine)"
                 strokeWidth="4"
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -1553,11 +1436,13 @@ function AdminOverview({ setTab }) {
                   key={week.label}
                   cx={index * 40 + 10}
                   cy={92 - (week.count / maxPaid) * 70}
-                  r="3.5"
-                  fill="#171322"
+                  r="5"
+                  fill="#fff"
+                  stroke="#e4600a"
+                  strokeWidth="2.5"
                   onMouseEnter={() =>
                     setChartHover({
-                      text: `${week.label}: ${week.count} total paid bills`,
+                      text: `${week.label}: ${week.count} paid bills`,
                       x: `${(index / 7) * 100}%`,
                     })
                   }
@@ -1567,101 +1452,92 @@ function AdminOverview({ setTab }) {
             </svg>
             {chartHover && (
               <div
-                className="pointer-events-none absolute top-0 -translate-x-1/2 rounded-lg bg-[#171322] px-3 py-2 text-xs font-bold text-white"
+                className="tip pointer-events-none absolute top-1 -translate-x-1/2"
                 style={{ left: chartHover.x }}
               >
                 {chartHover.text}
               </div>
             )}
-            <div className="flex justify-between px-1 text-[10px] text-black/40">
+            <div className="flex justify-between px-1 text-[10px] text-muted">
               {weeks.map((week) => (
                 <span key={week.label}>{week.label}</span>
               ))}
             </div>
           </div>
         </Card>
+
         <Card>
           <div className="flex items-start justify-between">
             <div>
-              <p className="font-mono text-xs uppercase tracking-[.17em] text-black/45">
-                Menu balance
-              </p>
-              <h3 className="mt-1 font-bold">Veg vs non-veg this week</h3>
-            </div>{" "}
-            <span className="font-mono text-xs text-black/40">
+              <h3 className="text-lg font-bold">Veg vs non-veg</h3>
+              <p className="mt-1 text-xs text-muted">Meals per day this week</p>
+            </div>
+            <span className="chip">
               {uniqueMenu.filter((meal) => meal.veg).length} /{" "}
               {uniqueMenu.filter((meal) => !meal.veg).length}
             </span>
           </div>
-          <div className="relative mt-5 flex h-44 items-end justify-between gap-2">
-            {vegByDay.map((item, index) => (
-              <div
-                key={days[index]}
-                className="flex h-full flex-1 items-end justify-center gap-1"
-                onMouseEnter={() =>
-                  setChartHover({
-                    text: `${days[index]}: ${item.veg} veg / ${item.nonVeg} non-veg`,
-                    x: `${(index / 6) * 100}%`,
-                  })
-                }
-                onMouseLeave={() => setChartHover(null)}
-              >
+          <div className="neu-in relative mt-5 rounded-2xl p-3">
+            <div className="relative flex h-36 items-end justify-between gap-2">
+              {vegByDay.map((item, index) => (
                 <div
-                  className="w-3 rounded-t bg-[#dbacfc]"
-                  style={{
-                    height: `${Math.max(4, (item.veg / maxMeals) * 100)}%`,
-                  }}
-                />
+                  key={days[index]}
+                  className="flex h-full flex-1 items-end justify-center gap-1"
+                  onMouseEnter={() =>
+                    setChartHover({
+                      text: `${days[index]}: ${item.veg} veg / ${item.nonVeg} non-veg`,
+                      x: `${(index / 6) * 100}%`,
+                    })
+                  }
+                  onMouseLeave={() => setChartHover(null)}
+                >
+                  <div
+                    className="w-3 rounded-t-md bg-[var(--teal)] shadow-[0_0_10px_var(--teal)]"
+                    style={{ height: `${Math.max(4, (item.veg / maxMeals) * 100)}%` }}
+                  />
+                  <div
+                    className="w-3 rounded-t-md bg-[var(--danger)] shadow-[0_0_10px_var(--danger)]"
+                    style={{ height: `${Math.max(4, (item.nonVeg / maxMeals) * 100)}%` }}
+                  />
+                </div>
+              ))}
+              {chartHover && (
                 <div
-                  className="w-3 rounded-t bg-[#171322]"
-                  style={{
-                    height: `${Math.max(4, (item.nonVeg / maxMeals) * 100)}%`,
-                  }}
-                />
-              </div>
-            ))}
-            {chartHover && (
-              <div
-                className="pointer-events-none absolute top-0 -translate-x-1/2 rounded-lg bg-[#171322] px-3 py-2 text-xs font-bold text-white"
-                style={{ left: chartHover.x }}
-              >
-                {chartHover.text}
-              </div>
-            )}
+                  className="tip pointer-events-none absolute top-0 -translate-x-1/2"
+                  style={{ left: chartHover.x }}
+                >
+                  {chartHover.text}
+                </div>
+              )}
+            </div>
+            <div className="mt-2 flex justify-between text-[10px] text-muted">
+              {days.map((day) => (
+                <span key={day}>{day}</span>
+              ))}
+            </div>
           </div>
-          <div className="mt-2 flex justify-between text-[10px] text-black/40">
-            {days.map((day) => (
-              <span key={day}>{day}</span>
-            ))}
-          </div>
-          <div className="mt-3 flex gap-4 text-[10px] font-bold text-black/50">
-            <span>
-              <i className="mr-1 inline-block h-2 w-2 rounded-full bg-[#dbacfc]" />
-              Veg
+          <div className="mt-4 flex gap-5 text-xs font-semibold text-muted">
+            <span className="flex items-center gap-2">
+              <VegLed veg /> Veg
             </span>
-            <span>
-              <i className="mr-1 inline-block h-2 w-2 rounded-full bg-[#171322]" />
-              Non-veg
+            <span className="flex items-center gap-2">
+              <VegLed veg={false} /> Non-veg
             </span>
           </div>
         </Card>
       </div>
-      <Card>
-        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+
+      <Card strong>
+        <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
           <div>
-            <p className="font-mono text-xs uppercase tracking-[.17em] text-black/45">
-              What needs attention
-            </p>
-            <h3 className="mt-1 font-bold">Manage the week from one place.</h3>
-            <p className="mt-1 text-sm text-black/50">
-              Update meals, post announcements, or record offline collections.
+            <h3 className="text-lg font-bold">Manage the week from one place</h3>
+            <p className="mt-1 text-sm text-muted">
+              Update meals, post announcements or record offline collections.
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="lilac" onClick={() => setTab("Admin")}>
-              Open admin tools
-            </Button>
-            <Button variant="light" onClick={() => setTab("Menu")}>
+          <div className="flex flex-wrap gap-3">
+            <Button onClick={() => setTab("Admin")}>Open admin tools</Button>
+            <Button variant="soft" onClick={() => setTab("Menu")}>
               Review menu
             </Button>
           </div>
@@ -1671,6 +1547,9 @@ function AdminOverview({ setTab }) {
   );
 }
 
+/* ------------------------------------------------------------------
+   Announcements + Home
+------------------------------------------------------------------ */
 function Announcements() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1682,47 +1561,35 @@ function Announcements() {
       .finally(() => setLoading(false));
   }, []);
   return (
-    <div className="space-y-5">
-      <div>
-        <p className="font-mono text-xs uppercase tracking-[.2em] text-black/45">
-          Mess updates
-        </p>
-        <h2 className="mt-1 text-3xl font-extrabold tracking-[-.05em]">
-          Announcements
-        </h2>
-        <p className="mt-2 text-sm text-black/50">
-          Updates published by the mess team, newest first.
-        </p>
-      </div>
+    <div className="space-y-6">
+      <Heading title="Updates" sub="Posted by the mess team, newest first." />
       {loading && (
         <Card className="flex items-center gap-3">
           <Spinner />
-          <span className="text-sm">Loading announcements…</span>
+          <span className="text-sm">Loading updates…</span>
         </Card>
       )}
       {error && (
         <Card>
-          <p className="text-sm text-red-600">{error}</p>
+          <p className="text-sm font-semibold text-[var(--danger)]">{error}</p>
         </Card>
       )}
       {!loading && !error && !items.length && (
         <Card>
-          <p className="text-sm text-black/45">
-            No announcements have been published yet.
-          </p>
+          <p className="text-sm text-muted">Nothing posted yet.</p>
         </Card>
       )}
       {!loading && !error && items.length > 0 && (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {items.map((announcement) => (
-            <Card key={announcement._id} className="border-[#dbacfc]/50">
-              <div className="flex items-start gap-3">
-                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#f2e5ff] text-[#6b398e]">
+            <Card key={announcement._id}>
+              <div className="flex items-start gap-4">
+                <span className="neu-sm grid h-11 w-11 shrink-0 place-items-center rounded-2xl text-mango">
                   ✦
                 </span>
                 <div className="min-w-0">
                   <p className="font-semibold leading-6">{announcement.text}</p>
-                  <p className="mt-2 text-xs text-black/45">
+                  <p className="mt-2 text-xs text-muted">
                     {announcement.createdAt
                       ? new Date(announcement.createdAt).toLocaleString()
                       : "Mess team update"}
@@ -1737,125 +1604,164 @@ function Announcements() {
   );
 }
 
-function Home({ user, setTab, setMeal }) {
+/* Replace the existing `function Home(...)` in App.jsx with this.
+   Add `mealTime` just above it. Uses Card, Button, VegLed, mealIcon etc. already in App.jsx. */
+
+// Edit these to match your mess's real serving times
+const mealTime = {
+  breakfast: "7:30 – 9:30 AM",
+  lunch: "12:30 – 2:30 PM",
+  snacks: "5:00 – 6:00 PM",
+  dinner: "8:00 – 9:30 PM",
+};
+
+function Home({ user, setTab }) {
   const [menu, setMenu] = useState([]);
+  const [update, setUpdate] = useState(null);
   useEffect(() => {
     api("/menu").then(setMenu);
+    api("/announcements")
+      .then((list) => setUpdate(list[0] || null))
+      .catch(() => {});
   }, []);
+
   const todayMeals = mealTypes
-    .map((type) =>
-      menu.find((meal) => meal.day === currentDay && meal.type === type),
-    )
+    .map((type) => menu.find((m) => m.day === currentDay && m.type === type))
     .filter(Boolean);
+  const hour = new Date().getHours();
+  const nextType =
+    hour < 10 ? "breakfast" : hour < 15 ? "lunch" : hour < 18 ? "snacks" : hour < 22 ? "dinner" : null;
+  const next = todayMeals.find((m) => m.type === nextType);
+  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const dateLabel = new Date().toLocaleDateString("en-IN", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+  const firstName = user.name.split(" ")[0];
+
+  const links = [
+    { tab: "Fees", title: "Fees and coupons", note: "Bills, payments and your coupons" },
+    { tab: "Feedback", title: "Feedback", note: "Report an issue or rate a meal" },
+    { tab: "Announcements", title: "Updates", note: "Notices from the mess team" },
+  ];
+
   return (
     <div className="space-y-6">
-      <section className="relative overflow-hidden rounded-[2rem] bg-[#dbacfc] p-7 sm:p-10">
-        <div className="relative z-10 max-w-lg">
-          <p className="font-mono text-xs uppercase tracking-[.2em] text-black/55">
-            Good morning, {user.name.split(" ")[0]}
-          </p>
-          <h2 className="mt-3 text-4xl font-extrabold leading-[1.02] tracking-[-.06em] sm:text-5xl">
-            A better day
-            <br />
-            starts with{" "}
-            <span className="underline decoration-white decoration-4 underline-offset-8">
-              good food.
-            </span>
-          </h2>
-          <p className="mt-5 max-w-sm text-sm leading-6 text-black/60">
-            Here’s what’s cooking today. Check the full weekly rhythm whenever
-            you need it.
-          </p>
-          <Button className="mt-6" onClick={() => setTab("Menu")}>
-            See today’s menu <span className="ml-2">↗</span>
-          </Button>
-        </div>
-        <div className="absolute -right-10 -top-20 h-72 w-72 rounded-full border-[30px] border-white/25" />
-        <div className="absolute bottom-5 right-16 hidden rotate-[-12deg] text-8xl opacity-20 sm:block">
-          ✦
+      {update && (
+        <button
+          onClick={() => setTab("Announcements")}
+          className="metal flex w-full items-center gap-3 px-5 py-4 text-left text-sm"
+        >
+          <span className="led" style={{ "--c": "#d9b878" }} />
+          <span className="min-w-0 truncate">
+            <b>Mess update</b>
+            <span className="muted-on ml-2">{update.text}</span>
+          </span>
+        </button>
+      )}
+
+      <section className="glass-strong overflow-hidden p-7 sm:p-10">
+        <div className="grid items-center gap-10 lg:grid-cols-[1.1fr_.9fr]">
+          <div>
+            <p className="text-sm font-semibold text-muted">
+              {dateLabel} · {greeting}, {firstName}
+            </p>
+            <h2 className="mt-4 text-4xl sm:text-5xl">
+              What’s on your plate today?
+            </h2>
+            <p className="mt-5 max-w-md text-[0.95rem] leading-7 text-muted">
+              Check what’s being served, buy a coupon in advance and skip the
+              queue at the counter.
+            </p>
+            <div className="mt-8 flex flex-wrap items-center gap-5">
+              <Button onClick={() => setTab("Menu")}>See today’s menu</Button>
+              <button className="link-btn text-sm" onClick={() => setTab("Fees")}>
+                View my bills
+              </button>
+            </div>
+          </div>
+
+          <div className="relative mx-auto w-full max-w-[220px] sm:max-w-[320px]">
+            <div className="plate" />
+            {next && (
+              <div className="glass-strong absolute -bottom-4 -left-2 max-w-[230px] px-4 py-3 sm:-left-10">
+                <p className="text-xs font-semibold text-muted">
+                  Up next · <span className="capitalize">{next.type}</span>
+                </p>
+                <p className="mt-1 text-sm font-bold leading-snug">
+                  {next.items.slice(0, 3).join(", ")}
+                </p>
+                <p className="mt-1 text-xs text-muted">{mealTime[next.type]}</p>
+              </div>
+            )}
+          </div>
         </div>
       </section>
-      <div className="grid gap-4 sm:grid-cols-3">
-        <button onClick={() => setTab("Menu")} className="text-left">
-          <Card className="h-full transition hover:-translate-y-1">
-            <Icon className="mb-5 h-10 w-10 rounded-xl bg-[#f1e4ff]">☀</Icon>
-            <p className="font-mono text-[10px] uppercase tracking-[.18em] text-black/45">
-              Today
-            </p>
-            <h3 className="mt-1 font-bold">View menu</h3>
-            <p className="mt-2 text-xs text-black/50">
-              {todayMeals.length} meals planned
-            </p>
-          </Card>
-        </button>
-        <button onClick={() => setTab("Fees")} className="text-left">
-          <Card className="h-full transition hover:-translate-y-1">
-            <Icon className="mb-5 h-10 w-10 rounded-xl bg-[#e6f7ed]">₹</Icon>
-            <p className="font-mono text-[10px] uppercase tracking-[.18em] text-black/45">
-              Accounts
-            </p>
-            <h3 className="mt-1 font-bold">Mess fees</h3>
-            <p className="mt-2 text-xs text-black/50">
-              View statements & status
-            </p>
-          </Card>
-        </button>
-        <button onClick={() => setTab("Feedback")} className="text-left">
-          <Card className="h-full transition hover:-translate-y-1">
-            <Icon className="mb-5 h-10 w-10 rounded-xl bg-[#fff1ce]">↗</Icon>
-            <p className="font-mono text-[10px] uppercase tracking-[.18em] text-black/45">
-              Have a say
-            </p>
-            <h3 className="mt-1 font-bold">Send feedback</h3>
-            <p className="mt-2 text-xs text-black/50">Report, rate, improve</p>
-          </Card>
-        </button>
-      </div>
+
       <Card>
-        <div className="flex items-center justify-between">
+        <div className="flex items-end justify-between">
           <div>
-            <p className="font-mono text-xs uppercase tracking-[.18em] text-black/45">
-              Next up
-            </p>
-            <h3 className="mt-1 font-bold">Today’s meals</h3>
+            <h3 className="text-lg font-bold">Today’s meals</h3>
+            <p className="mt-1 text-xs text-muted">{days[currentDay]} · tap a meal to buy its coupon</p>
           </div>
-          <button
-            className="text-xs font-bold underline"
-            onClick={() => setTab("Menu")}
-          >
-            Full menu →
+          <button className="link-btn text-xs" onClick={() => setTab("Menu")}>
+            Full menu
           </button>
         </div>
-        <div className="mt-4 grid gap-2 sm:grid-cols-4">
-          {todayMeals.map((meal) => (
-            <button
-              key={meal._id}
-              className="rounded-2xl bg-[#fbf6ff] p-3 text-left"
-              onClick={() => {
-                setMeal(meal);
-                setTab("Feedback");
-              }}
-            >
-              <div className="flex items-center justify-between text-[10px] font-bold uppercase text-black/45">
-                <span>{meal.type}</span>
-                <VegMark veg={meal.veg} />
-              </div>
-              <p className="mt-2 text-sm font-semibold">
-                {meal.items.join(", ")}
-              </p>
-            </button>
-          ))}
+        <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {todayMeals.map((meal) => {
+            const isNext = meal.type === nextType;
+            return (
+              <button
+                key={meal._id}
+                onClick={() => setTab("Menu")}
+                className="neu-sm neu-press flex flex-col rounded-2xl p-4 text-left"
+                style={isNext ? { borderColor: "var(--brass)" } : undefined}
+              >
+                <div className="flex items-center justify-between text-xs font-semibold text-muted">
+                  <span className="capitalize">
+                    {mealIcon[meal.type]} {meal.type}
+                  </span>
+                  <VegLed veg={meal.veg} />
+                </div>
+                <p className="mt-3 text-sm font-semibold leading-snug">
+                  {meal.items.join(", ")}
+                </p>
+                <p className="mt-auto pt-4 text-xs text-muted">
+                  {mealTime[meal.type]}
+                  {meal.calories ? ` · ${meal.calories} kcal` : ""}
+                </p>
+              </button>
+            );
+          })}
           {!todayMeals.length && (
-            <p className="text-sm text-black/45">
-              The menu team is updating today’s menu.
+            <p className="text-sm text-muted sm:col-span-4">
+              Today’s menu hasn’t been posted yet.
             </p>
           )}
         </div>
       </Card>
+
+      <div className="grid gap-5 sm:grid-cols-3">
+        {links.map((l) => (
+          <button
+            key={l.tab}
+            onClick={() => setTab(l.tab)}
+            className="neu neu-press rounded-[20px] p-5 text-left"
+          >
+            <h3 className="font-bold">{l.title}</h3>
+            <p className="mt-1 text-xs leading-5 text-muted">{l.note}</p>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
 
+/* ------------------------------------------------------------------
+   Shell: floating glass top bar + glass dock (no sidebar)
+------------------------------------------------------------------ */
 export default function App() {
   const [user, setUser] = useState(null);
   const [ready, setReady] = useState(false);
@@ -1863,11 +1769,11 @@ export default function App() {
   const [feedbackMeal, setFeedbackMeal] = useState(null);
   const [couponMeal, setCouponMeal] = useState(null);
   const [darkMode, setDarkMode] = useState(
-    () => localStorage.getItem("plate-dark") === "1",
+    () => localStorage.getItem("hb-dark") === "1",
   );
   useEffect(() => {
-    document.body.classList.toggle("dark", darkMode);
-    localStorage.setItem("plate-dark", darkMode ? "1" : "0");
+    document.documentElement.dataset.theme = darkMode ? "dark" : "light";
+    localStorage.setItem("hb-dark", darkMode ? "1" : "0");
   }, [darkMode]);
   useEffect(() => {
     const token = localStorage.getItem("plate-token");
@@ -1880,44 +1786,122 @@ export default function App() {
       .catch(() => localStorage.removeItem("plate-token"))
       .finally(() => setReady(true));
   }, []);
+
+  const backdrop = (
+    <div className="aurora" aria-hidden="true">
+      <i />
+      <i />
+      <i />
+    </div>
+  );
+
   if (!ready)
     return (
-      <div className="grid min-h-screen place-items-center bg-[#fbf9ff] text-sm text-black/45">
-        Loading PlateMate…
-      </div>
+      <>
+        {backdrop}
+        <div className="grid min-h-screen place-items-center text-sm font-semibold text-muted">
+          Loading HostelBite…
+        </div>
+      </>
     );
-  if (!user) return <Auth onLogin={setUser} />;
+  if (!user)
+    return (
+      <>
+        {backdrop}
+        <Auth onLogin={setUser} />
+      </>
+    );
+
   const tabs =
     user.role === "admin"
       ? [
           { id: "Home", label: "Overview", icon: "⌂" },
-          { id: "Menu", label: "Menu", icon: "☀" },
+          { id: "Menu", label: "Menu", icon: "🍽" },
           { id: "Admin", label: "Admin", icon: "⚙" },
         ]
       : [
-          { id: "Home", label: "Overview", icon: "⌂" },
-          { id: "Menu", label: "Menu", icon: "☀" },
+          { id: "Home", label: "Home", icon: "⌂" },
+          { id: "Menu", label: "Menu", icon: "🍽" },
           { id: "Announcements", label: "Updates", icon: "✦" },
           { id: "Fees", label: "Fees", icon: "₹" },
-          { id: "Feedback", label: "Feedback", icon: "↗" },
+          { id: "Feedback", label: "Feedback", icon: "💬" },
         ];
   const logout = () => {
     localStorage.removeItem("plate-token");
     setUser(null);
   };
   return (
-    <div className="min-h-screen bg-[#fbf9ff]">
-      <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r border-black/[.07] bg-white px-5 py-6 lg:flex">
-        <div className="flex items-center gap-2 px-2 font-extrabold tracking-tight">
-          <span className="grid h-8 w-8 place-items-center rounded-lg bg-[#171322] text-[#dbacfc]">
-            P
-          </span>{" "}
-          plate<span className="text-[#b66cf0]">mate</span>
+    <div className="min-h-screen">
+      {backdrop}
+
+      <header className="fixed inset-x-0 top-0 z-30 flex justify-center px-3 pt-3 sm:px-6 sm:pt-4">
+        <div className="glass-strong flex w-full max-w-6xl items-center justify-between rounded-full py-2 pl-3 pr-3 sm:pl-4">
+          <Logo />
+          <div className="flex items-center gap-3 sm:gap-4">
+            <span className="hidden text-right sm:block">
+              <b className="block text-sm leading-tight">{user.name}</b>
+              <small className="text-xs capitalize text-muted">{user.role}</small>
+            </span>
+            <ThemeSwitch dark={darkMode} onClick={() => setDarkMode(!darkMode)} />
+            <button
+              onClick={logout}
+              aria-label="Log out"
+              title="Log out"
+              className="neu-sm neu-press grid h-10 w-10 place-items-center rounded-full text-sm font-bold"
+            >
+              ⏻
+            </button>
+          </div>
         </div>
-        <p className="mt-14 px-2 font-mono text-[10px] uppercase tracking-[.2em] text-black/35">
-          Workspace
-        </p>
-        <nav className="mt-3 space-y-1">
+      </header>
+
+      <main className="mx-auto max-w-6xl px-4 pb-36 pt-28 sm:px-6">
+        {tab === "Home" &&
+          (user.role === "admin" ? (
+            <AdminOverview setTab={setTab} />
+          ) : (
+            <Home user={user} setTab={setTab} setMeal={setFeedbackMeal} />
+          ))}
+        {tab === "Menu" && (
+          <Menu
+            onBuy={setCouponMeal}
+            onRate={
+              user.role === "admin"
+                ? undefined
+                : (meal) => {
+                    setFeedbackMeal(meal);
+                    setTab("Feedback");
+                  }
+            }
+          />
+        )}
+        {tab === "Announcements" && user.role !== "admin" && <Announcements />}
+        {tab === "Fees" && user.role !== "admin" && (
+          <div className="space-y-6">
+            <Heading title="Fees and coupons" sub="Everything you owe and have paid." />
+            <Fees />
+          </div>
+        )}
+        {tab === "Feedback" && user.role !== "admin" && (
+          <div className="space-y-6">
+            <Heading title="Feedback" sub="Your voice shapes what’s served." />
+            <Feedback initialMeal={feedbackMeal} />
+          </div>
+        )}
+        {tab === "Admin" && user.role === "admin" && (
+          <div className="space-y-6">
+            <Heading title="Admin tools" sub="Menu, announcements and billing." />
+            <Admin />
+            <AdminPaymentsTable />
+          </div>
+        )}
+      </main>
+
+      <nav
+        aria-label="Main"
+        className="fixed inset-x-0 bottom-0 z-30 flex justify-center px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+      >
+        <div className="glass-strong flex max-w-full gap-1 overflow-x-auto rounded-[28px] p-2 hide-scrollbar">
           {tabs.map((item) => (
             <button
               key={item.id}
@@ -1925,108 +1909,16 @@ export default function App() {
                 setTab(item.id);
                 setFeedbackMeal(null);
               }}
-              className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold ${tab === item.id ? "bg-[#f2e5ff] text-[#6b398e]" : "text-black/55 hover:bg-black/[.03]"}`}
+              aria-current={tab === item.id ? "page" : undefined}
+              className={`dock-item ${tab === item.id ? "on" : ""}`}
             >
-              <Icon>{item.icon}</Icon>
+              <Icon className="!h-6 !w-6 text-xl">{item.icon}</Icon>
               {item.label}
             </button>
           ))}
-        </nav>
-        <div className="mt-auto rounded-2xl bg-[#fbf6ff] p-4">
-          <p className="truncate text-sm font-bold">{user.name}</p>
-          <p className="mt-1 truncate text-xs text-black/45">{user.email}</p>
-          <button className="mt-4 text-xs font-bold underline" onClick={logout}>
-            Log out
-          </button>
         </div>
-      </aside>
-      <main className="pb-24 lg:ml-64 lg:pb-10">
-        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-black/[.06] bg-[#fbf9ff]/90 px-5 py-4 backdrop-blur-md sm:px-8">
-          <div>
-            <p className="font-mono text-[10px] uppercase tracking-[.2em] text-black/40">
-              IIIT-BH / mess portal
-            </p>
-            <h1 className="mt-1 text-xl font-extrabold tracking-[-.04em]">
-              {tabs.find((item) => item.id === tab)?.label}
-            </h1>
-          </div>{" "}
-          <div className="flex items-center gap-3">
-            <button
-              aria-label={
-                darkMode ? "Switch to light mode" : "Switch to dark mode"
-              }
-              className="grid h-9 w-9 place-items-center rounded-full border border-black/10 bg-[#dbacfc] text-base text-[#171322] transition hover:scale-105 dark:border-white/20 dark:bg-[#342541] dark:text-white"
-              onClick={() => setDarkMode(!darkMode)}
-            >
-              {darkMode ? "☀" : "☾"}
-            </button>
-            <span className="hidden text-right sm:block">
-              <b className="block text-xs">{user.name}</b>
-              <small className="text-[10px] uppercase tracking-wider text-black/40">
-                {user.role}
-              </small>
-            </span>
-            <div className="grid h-9 w-9 place-items-center rounded-full bg-[#dbacfc] text-sm font-extrabold">
-              {user.name[0]}
-            </div>
-          </div>
-        </header>
-        <div className="mx-auto max-w-6xl px-5 py-7 sm:px-8">
-          {tab === "Home" &&
-            (user.role === "admin" ? (
-              <AdminOverview setTab={setTab} />
-            ) : (
-              <Home user={user} setTab={setTab} setMeal={setFeedbackMeal} />
-            ))}
-          {tab === "Menu" && (
-            <Menu
-              onBuy={setCouponMeal}
-              onRate={
-                user.role === "admin"
-                  ? undefined
-                  : (meal) => {
-                      setFeedbackMeal(meal);
-                      setTab("Feedback");
-                    }
-              }
-            />
-          )}
-          {tab === "Announcements" && user.role !== "admin" && (
-            <Announcements />
-          )}
-          {tab === "Fees" && user.role !== "admin" && <Fees />}
-          {tab === "Feedback" && user.role !== "admin" && (
-            <Feedback initialMeal={feedbackMeal} />
-          )}
-          {tab === "Admin" && user.role === "admin" && (
-            <>
-              <Admin />
-              <AdminPaymentsTable />
-            </>
-          )}
-        </div>
-      </main>
-      <nav className="fixed inset-x-3 bottom-3 z-30 flex justify-around rounded-2xl border border-black/10 bg-white/95 p-2 shadow-xl backdrop-blur lg:hidden">
-        {tabs.map((item) => (
-          <button
-            key={item.id}
-            onClick={() => {
-              setTab(item.id);
-              setFeedbackMeal(null);
-            }}
-            className={`flex flex-col items-center rounded-xl px-3 py-2 text-[10px] font-bold ${tab === item.id ? "bg-[#f2e5ff] text-[#6b398e]" : "text-black/45"}`}
-          >
-            <Icon>{item.icon}</Icon>
-            {item.label}
-          </button>
-        ))}
-        <button
-          onClick={logout}
-          className="flex flex-col items-center rounded-xl px-3 py-2 text-[10px] font-bold text-black/45"
-        >
-          <Icon>↪</Icon>Exit
-        </button>
       </nav>
+
       {couponMeal && (
         <CouponDialog
           meal={couponMeal}
