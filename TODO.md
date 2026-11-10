@@ -1,4 +1,4 @@
-# PlateMate — IIIT-BH Mess
+# HotselBite — IIIT-BH Mess
 
 ## Progress
 - [x] Reorganized the app into `frontend/` and `backend/` folders while retaining the Vercel API adapter.

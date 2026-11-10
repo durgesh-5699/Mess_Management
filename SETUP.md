@@ -1,4 +1,4 @@
-# PlateMate setup
+# HostelBite setup
 
 ## Local development
 1. Run `npm install`.
